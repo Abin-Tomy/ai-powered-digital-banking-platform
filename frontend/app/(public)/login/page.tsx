@@ -17,8 +17,8 @@ export default function LoginPage() {
       });
 
       // Admin can read users list
-      const res = await api.get("/users/");
-      const user = res.data[0];
+      const res = await api.get("/users/me/");
+      const user = res.data;
 
       if (user.role === "ADMIN") {
         router.push("/admin-dashboard");
