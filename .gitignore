@@ -1,0 +1,27 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Python / Django / ML
+__pycache__/
+*.pyc
+.env
+venv/
+.env.*
+
+# Django
+db.sqlite3
+staticfiles/
+
+# ML artifacts
+models/
+*.pkl
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
