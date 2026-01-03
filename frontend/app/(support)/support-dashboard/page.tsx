@@ -1,3 +1,3 @@
 export default function Page() {
-  return <div>Placeholder</div>;
+  return <div>support dashboard</div>;
 }
