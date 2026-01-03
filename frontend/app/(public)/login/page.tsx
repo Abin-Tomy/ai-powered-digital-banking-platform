@@ -20,6 +20,8 @@ export default function LoginPage() {
       const res = await api.get("/users/me/");
       const user = res.data;
 
+      document.cookie = `role=${user.role}; path=/`;
+
       if (user.role === "ADMIN") {
         router.push("/admin-dashboard");
       } else if (user.role === "SUPPORT") {
