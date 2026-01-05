@@ -12,3 +12,14 @@ class AccountSerializer(serializers.ModelSerializer):
             'status',
             'created_at',
         ]
+
+class AccountFundingSerializer(serializers.Serializer):
+    account_number = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "Funding amount must be greater than zero."
+            )
+        return value

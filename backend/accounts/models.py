@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.db import models
+import uuid
+
 
 User = settings.AUTH_USER_MODEL
 
@@ -22,7 +24,8 @@ class Account(models.Model):
 
     account_number = models.CharField(
         max_length=20,
-        unique=True
+        unique=True,
+        editable=False
     )
 
     account_type = models.CharField(
@@ -43,6 +46,18 @@ class Account(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.account_number:
+            self.account_number = self.generate_account_number()
+        super().save(*args, **kwargs)
+
+    def generate_account_number(self):
+        """
+        Banking-grade account number generation.
+        Prefix + random unique segment.
+        """
+        return f"ACC{uuid.uuid4().hex[:10].upper()}"
 
     def __str__(self):
         return f"{self.account_number} ({self.owner})"
