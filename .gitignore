@@ -1,27 +1,83 @@
+# =========================
 # Node / Next.js
+# =========================
 node_modules/
 .next/
 out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
+# =========================
 # Python / Django / ML
+# =========================
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .env
-venv/
 .env.*
+venv/
+.venv/
+pip-wheel-metadata/
+.pytest_cache/
 
+# =========================
 # Django
+# =========================
 db.sqlite3
 staticfiles/
+media/
 
+# =========================
+# PostgreSQL
+# =========================
+*.sql
+*.dump
+*.backup
+
+# =========================
 # ML artifacts
+# =========================
 models/
 *.pkl
+*.joblib
+*.h5
+*.pt
 
+# =========================
+# FastAPI / Uvicorn
+# =========================
+uvicorn.log
+
+# =========================
+# Jupyter / ML experiments
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
 # OS files
+# =========================
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# IDEs
+# =========================
+# IDEs / Editors
+# =========================
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# =========================
+# Coverage / Reports
+# =========================
+htmlcov/
+.coverage
+coverage.xml
