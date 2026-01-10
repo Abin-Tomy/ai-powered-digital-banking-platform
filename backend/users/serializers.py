@@ -1,39 +1,30 @@
 from rest_framework import serializers
+from django.contrib.auth.password_validation import validate_password
 from .models import User
 
 
-class UserSerializer(serializers.ModelSerializer):
-    """
-    Used for:
-    - Admin user listing
-    - Current logged-in user (/me)
-    """
-    class Meta:
-        model = User
-        fields = [
-            'id',
-            'username',
-            'email',
-            'role',
-        ]
-
-
-class RegisterSerializer(serializers.ModelSerializer):
-    """
-    Used for:
-    - Customer registration
-    """
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = ['username', 'email', 'password']
+class RegisterSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    full_name = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True, validators=[validate_password])
 
     def create(self, validated_data):
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email'),
-            password=validated_data['password'],
-            role='CUSTOMER'
+            email=validated_data["email"],
+            password=validated_data["password"],
+            full_name=validated_data["full_name"],
+            role=User.Role.CUSTOMER,
         )
         return user
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "full_name",
+            "role",
+            "is_verified",
+        ]

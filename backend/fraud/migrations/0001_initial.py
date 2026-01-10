@@ -13,12 +13,13 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Account',
+            name='FraudFlag',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('account_number', models.CharField(db_index=True, max_length=20, unique=True)),
-                ('account_type', models.CharField(choices=[('SAVINGS', 'Savings'), ('CURRENT', 'Current')], max_length=20)),
-                ('status', models.CharField(choices=[('ACTIVE', 'Active'), ('FROZEN', 'Frozen'), ('CLOSED', 'Closed')], default='ACTIVE', max_length=20)),
+                ('status', models.CharField(choices=[('CLEAR', 'Clear'), ('SUSPICIOUS', 'Suspicious'), ('CONFIRMED_FRAUD', 'Confirmed Fraud'), ('FALSE_POSITIVE', 'False Positive')], default='SUSPICIOUS', max_length=20)),
+                ('risk_score', models.PositiveIntegerField()),
+                ('reasons', models.JSONField()),
+                ('reviewed_at', models.DateTimeField(blank=True, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
             ],
         ),

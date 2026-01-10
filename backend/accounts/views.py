@@ -1,62 +1,116 @@
-from rest_framework.generics import ListAPIView
-from .models import Account
-from .serializers import AccountSerializer
-from users.permissions import IsCustomer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.db import transaction as db_transaction
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Account
-from .serializers import AccountFundingSerializer
-from transactions.models import Transaction
-from users.permissions import IsAdmin
+from .serializers import AccountSerializer
+from .utils import generate_account_number
 
-class AccountListView(ListAPIView):
-    serializer_class = AccountSerializer
-    permission_classes = [IsCustomer]
 
-    def get_queryset(self):
-        return Account.objects.filter(owner=self.request.user)
-    
-
-class AdminAccountFundingView(APIView):
+class CreateAccountView(APIView):
     """
-    Admin-only system funding of customer accounts.
+    Admin/System creates accounts
     """
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = AccountFundingSerializer(data=request.data)
+        if request.user.role != "ADMIN":
+            return Response(
+                {"detail": "Not allowed"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = AccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        account_number = serializer.validated_data["account_number"]
-        amount = serializer.validated_data["amount"]
+        owner_id = request.data.get("owner_id")
+        account_type = serializer.validated_data["account_type"]
 
+        # ✅ Enforce one SAVINGS account per customer (ONLY ONCE)
+        if account_type == "SAVINGS":
+            if Account.objects.filter(
+                owner_id=owner_id,
+                account_type="SAVINGS",
+                status__in=["ACTIVE", "FROZEN"]
+            ).exists():
+                return Response(
+                    {"detail": "Customer already has a savings account"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # ✅ Create account ONCE
+        account = Account.objects.create(
+            owner_id=owner_id,
+            account_type=account_type,
+            account_number=generate_account_number()
+        )
+
+        return Response(
+            AccountSerializer(account).data,
+            status=status.HTTP_201_CREATED
+        )
+
+class MyAccountsView(APIView):
+    """
+    Customer views own accounts
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        accounts = Account.objects.filter(owner=request.user)
+        serializer = AccountSerializer(accounts, many=True)
+        return Response(serializer.data)
+
+
+class AccountDetailView(APIView):
+    """
+    Owner-only account view
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, account_id):
         try:
-            account = Account.objects.get(
-                account_number=account_number,
-                status="ACTIVE"
-            )
+            account = Account.objects.get(id=account_id)
         except Account.DoesNotExist:
+            return Response(status=404)
+
+        if account.owner != request.user:
+            return Response(status=403)
+
+        serializer = AccountSerializer(account)
+        return Response(serializer.data)
+
+class AccountStatusUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, account_id):
+        if request.user.role != "ADMIN":
+            return Response(status=403)
+
+        new_status = request.data.get("status")
+        if new_status not in ["ACTIVE", "FROZEN", "CLOSED"]:
             return Response(
-                {"detail": "Invalid or inactive account."},
+                {"detail": "Invalid status"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        with db_transaction.atomic():
-            account.balance += amount
-            account.save()
+        try:
+            account = Account.objects.get(id=account_id)
+        except Account.DoesNotExist:
+            return Response(status=404)
 
-            Transaction.objects.create(
-                source_account=None,
-                destination_account=account,
-                transaction_type="CREDIT",
-                amount=amount,
-                status="COMPLETED"
-            )
+        account.status = new_status
+        account.save()
 
-        return Response(
-            {"message": "Account funded successfully."},
-            status=status.HTTP_200_OK
-        )
+        return Response(AccountSerializer(account).data)
+
+class AllAccountsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != "ADMIN":
+            return Response(status=403)
+
+        accounts = Account.objects.all()
+        return Response(AccountSerializer(accounts, many=True).data)

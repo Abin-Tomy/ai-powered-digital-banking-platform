@@ -1,63 +1,54 @@
-from django.conf import settings
-from django.db import models
 import uuid
+from django.db import models
+from django.conf import settings
 
-
-User = settings.AUTH_USER_MODEL
 
 class Account(models.Model):
-    ACCOUNT_TYPE_CHOICES = (
-        ('SAVINGS', 'Savings'),
-        ('CURRENT', 'Current'),
-    )
+    class AccountType(models.TextChoices):
+        SAVINGS = 'SAVINGS'
+        CURRENT = 'CURRENT'
 
-    STATUS_CHOICES = (
-        ('ACTIVE', 'Active'),
-        ('FROZEN', 'Frozen'),
-    )
+    class Status(models.TextChoices):
+        ACTIVE = 'ACTIVE'
+        FROZEN = 'FROZEN'
+        CLOSED = 'CLOSED'
 
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='accounts'
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     account_number = models.CharField(
         max_length=20,
         unique=True,
-        editable=False
+        db_index=True
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='accounts'
     )
 
     account_type = models.CharField(
         max_length=20,
-        choices=ACCOUNT_TYPE_CHOICES
-    )
-
-    balance = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0.00
+        choices=AccountType.choices
     )
 
     status = models.CharField(
-        max_length=10,
-        choices=STATUS_CHOICES,
-        default='ACTIVE'
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def save(self, *args, **kwargs):
-        if not self.account_number:
-            self.account_number = self.generate_account_number()
-        super().save(*args, **kwargs)
-
-    def generate_account_number(self):
-        """
-        Banking-grade account number generation.
-        Prefix + random unique segment.
-        """
-        return f"ACC{uuid.uuid4().hex[:10].upper()}"
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "account_type"],
+                condition=models.Q(account_type="SAVINGS"),
+                name="one_savings_account_per_user"
+            )
+        ]
 
     def __str__(self):
-        return f"{self.account_number} ({self.owner})"
+        return f"{self.account_number} ({self.owner.email})"

@@ -18,28 +18,28 @@ class UserListView(ListAPIView):
     permission_classes = [IsAdmin]
 
 
-class CurrentUserView(APIView):
-    """
-    Logged-in user info
-    """
-    permission_classes = [IsAuthenticated]
+# class CurrentUserView(APIView):
+#     """
+#     Logged-in user info
+#     """
+#     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+#     def get(self, request):
+#         serializer = UserSerializer(request.user)
+#         return Response(serializer.data)
 
 
-class RegisterView(APIView):
-    """
-    Public: customer registration
-    """
-    permission_classes = [permissions.AllowAny]
+# class RegisterView(APIView):
+#     """
+#     Public: customer registration
+#     """
+#     permission_classes = [permissions.AllowAny]
 
-    def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(
-            {"message": "Customer registered successfully"},
-            status=status.HTTP_201_CREATED
-        )
+#     def post(self, request):
+#         serializer = RegisterSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         serializer.save()
+#         return Response(
+#             {"message": "Customer registered successfully"},
+#             status=status.HTTP_201_CREATED
+#         )

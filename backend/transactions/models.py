@@ -1,55 +1,55 @@
+import uuid
 from django.db import models
+from django.conf import settings
 from accounts.models import Account
 
+
 class Transaction(models.Model):
-    TRANSACTION_TYPE_CHOICES = (
-        ('CREDIT', 'Credit'),
-        ('DEBIT', 'Debit'),
-        ('TRANSFER', 'Transfer'),
-    )
+    class Type(models.TextChoices):
+        DEBIT = 'DEBIT'
+        CREDIT = 'CREDIT'
 
-    STATUS_CHOICES = (
-        ('PENDING', 'Pending'),
-        ('COMPLETED', 'Completed'),
-        ('FAILED', 'Failed'),
-        ('FLAGGED', 'Flagged'),
-    )
+    class Status(models.TextChoices):
+        SUCCESS = 'SUCCESS'
+        FAILED = 'FAILED'
 
-    source_account = models.ForeignKey(
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    account = models.ForeignKey(
         Account,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='outgoing_transactions'
+        on_delete=models.PROTECT,
+        related_name='transactions'
     )
 
-    destination_account = models.ForeignKey(
-        Account,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='incoming_transactions'
-    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    type = models.CharField(max_length=10, choices=Type.choices)
 
-    transaction_type = models.CharField(
-        max_length=20,
-        choices=TRANSACTION_TYPE_CHOICES
-    )
-
-    amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2
-    )
+    reference = models.CharField(max_length=64, db_index=True)
+    description = models.CharField(max_length=255)
 
     status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='PENDING'
+        max_length=10,
+        choices=Status.choices,
+        default=Status.SUCCESS
     )
-
-    is_fraud_suspected = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['account']),
+            models.Index(fields=['reference']),
+        ]
+
     def __str__(self):
-        return f"{self.transaction_type} - {self.amount} ({self.status})"
+        return f"{self.type} {self.amount} on {self.account.account_number}"
+
+
+class IdempotencyKey(models.Model):
+    key = models.CharField(max_length=64)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("key", "user")
