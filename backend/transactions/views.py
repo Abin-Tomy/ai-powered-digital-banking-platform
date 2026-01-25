@@ -99,7 +99,7 @@ class TransferView(APIView):
                 amount=amount,
                 type='DEBIT',
                 reference=reference,
-                description=f"Transfer to {to_account.account_number}"
+                description=f"Transfer to {to_account.owner.full_name} ({to_account.account_number[-4:]})"
             )
 
             credit = Transaction.objects.create(
@@ -107,7 +107,7 @@ class TransferView(APIView):
                 amount=amount,
                 type='CREDIT',
                 reference=reference,
-                description=f"Transfer from {from_account.account_number}"
+                description=f"Transfer from {from_account.owner.full_name} ({from_account.account_number[-4:]})"
             )
 
             # ===== AI FRAUD DETECTION =====
@@ -197,12 +197,15 @@ class DepositView(APIView):
             )
 
         with db_transaction.atomic():
+            # Generate more descriptive deposit message
+            deposit_description = f"Admin funding - Account credited by {request.user.full_name}"
+            
             txn = Transaction.objects.create(
                 account=account,
                 amount=amount,
                 type="CREDIT",
                 reference=str(uuid.uuid4()),
-                description="Admin deposit"
+                description=deposit_description
             )
 
         return Response(

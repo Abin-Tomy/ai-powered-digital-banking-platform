@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import DashboardLayout from "../components/DashboardLayout";
+import UserAvatar from "@/components/UserAvatar";
 
 interface UserProfile {
   id: string;
@@ -96,10 +97,13 @@ export default function ProfilePage() {
             {/* Profile Card */}
             <div className="lg:col-span-1">
               <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-8 border border-purple-500/20 text-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <span className="text-white font-bold text-3xl">
-                    {profile.first_name?.[0] || profile.email[0].toUpperCase()}
-                  </span>
+                <div className="flex justify-center mb-6">
+                  <UserAvatar 
+                    name={`${profile.first_name} ${profile.last_name}`}
+                    email={profile.email}
+                    size="xl"
+                    showGravatar={true}
+                  />
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-1">
                   {profile.first_name} {profile.last_name}

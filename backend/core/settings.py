@@ -61,6 +61,9 @@ INSTALLED_APPS = [
     'accounts',
     'transactions',
     'fraud',
+    'loans',  # New loans app
+    'credit_cards',  # New credit cards app
+    'bill_payments',  # New bill payments app
     'corsheaders',
 
 ]
@@ -168,8 +171,8 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Increased from 10 minutes to 1 hour
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Increased from 1 day to 7 days
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),

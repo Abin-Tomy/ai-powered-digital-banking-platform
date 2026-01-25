@@ -21,6 +21,7 @@ export default function AdminDashboard() {
     pendingFraudFlags: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchStats();
@@ -29,7 +30,13 @@ export default function AdminDashboard() {
   const fetchStats = async () => {
     try {
       setLoading(true);
+      setError("");
       const token = localStorage.getItem("access_token");
+      
+      if (!token) {
+        setError("No access token found. Please login again.");
+        return;
+      }
       
       // Fetch all data to calculate stats
       const [usersRes, accountsRes, fraudRes] = await Promise.all([
@@ -44,8 +51,13 @@ export default function AdminDashboard() {
         totalTransactions: 0, // Will be calculated from accounts if needed
         pendingFraudFlags: fraudRes.data.filter((f: { status: string }) => f.status === "PENDING").length
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch stats", err);
+      if (err.response?.status === 401) {
+        setError("Authentication failed. Please login again.");
+      } else {
+        setError("Failed to load dashboard data. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -67,6 +79,32 @@ export default function AdminDashboard() {
   return (
     <AdminDashboardLayout>
       <div className="space-y-6">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="text-red-300">{error}</span>
+              <button 
+                onClick={() => setError("")}
+                className="ml-auto text-red-400 hover:text-red-300"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-2 ml-8">
+              <button
+                onClick={fetchStats}
+                className="text-red-400 hover:text-red-300 text-sm underline"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
+        
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
           <p className="text-purple-300">Monitor and manage the entire banking system</p>

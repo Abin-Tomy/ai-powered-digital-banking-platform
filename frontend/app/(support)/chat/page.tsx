@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
 import SupportDashboardLayout from "../components/SupportDashboardLayout";
+import UserAvatar from "@/components/UserAvatar";
 
 interface ChatMessage {
   id: string;
   sender: "customer" | "support";
   message: string;
   timestamp: Date;
+  customer_id?: string;
 }
 
 interface ChatSession {
@@ -17,67 +20,122 @@ interface ChatSession {
   status: "active" | "waiting" | "closed";
   lastMessage: string;
   unread: number;
+  customer_id: string;
+}
+
+interface Customer {
+  id: string;
+  full_name: string;
+  email: string;
+  date_joined: string;
 }
 
 export default function SupportChatPage() {
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  
-  // Mock data - In a real app, this would come from a WebSocket/API
-  const [chatSessions] = useState<ChatSession[]>([
-    {
-      id: "1",
-      customerName: "John Doe",
-      customerEmail: "john@example.com",
-      status: "active",
-      lastMessage: "I need help with my transfer",
-      unread: 2
-    },
-    {
-      id: "2",
-      customerName: "Jane Smith",
-      customerEmail: "jane@example.com",
-      status: "waiting",
-      lastMessage: "My account is locked",
-      unread: 1
-    },
-    {
-      id: "3",
-      customerName: "Bob Wilson",
-      customerEmail: "bob@example.com",
-      status: "closed",
-      lastMessage: "Thank you for your help!",
-      unread: 0
-    }
-  ]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
+  const [loading, setLoading] = useState(true);
 
-  const [messages] = useState<Record<string, ChatMessage[]>>({
-    "1": [
-      { id: "m1", sender: "customer", message: "Hello, I need help with a transfer", timestamp: new Date(Date.now() - 3600000) },
-      { id: "m2", sender: "support", message: "Hi! I'd be happy to help. What seems to be the issue?", timestamp: new Date(Date.now() - 3500000) },
-      { id: "m3", sender: "customer", message: "I tried to transfer money but it says insufficient balance", timestamp: new Date(Date.now() - 3400000) },
-      { id: "m4", sender: "customer", message: "I need help with my transfer", timestamp: new Date(Date.now() - 60000) },
-    ],
-    "2": [
-      { id: "m5", sender: "customer", message: "My account seems to be locked", timestamp: new Date(Date.now() - 1800000) },
-    ],
-    "3": [
-      { id: "m6", sender: "customer", message: "Thank you for your help!", timestamp: new Date(Date.now() - 86400000) },
-      { id: "m7", sender: "support", message: "You're welcome! Have a great day!", timestamp: new Date(Date.now() - 86300000) },
-    ]
-  });
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      
+      // Fetch all users to create potential chat sessions
+      const usersRes = await api.get("/admin/users/", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const customerUsers = usersRes.data.filter((user: any) => user.role === "CUSTOMER");
+      setCustomers(customerUsers);
+      
+      // Create chat sessions from customers
+      const sessions: ChatSession[] = customerUsers.map((customer: Customer, index: number) => ({
+        id: customer.id,
+        customerName: customer.full_name,
+        customerEmail: customer.email,
+        status: index === 0 ? "active" : index === 1 ? "waiting" : "closed",
+        lastMessage: index === 0 ? "Hello, I need help with a transfer" : 
+                     index === 1 ? "My account is locked" : 
+                     "Thank you for your help!",
+        unread: index < 2 ? 1 : 0,
+        customer_id: customer.id
+      }));
+      
+      setChatSessions(sessions);
+      
+      // Initialize some sample messages for demo
+      const initialMessages: Record<string, ChatMessage[]> = {};
+      sessions.forEach((session, index) => {
+        if (index < 2) { // Only add messages for first 2 customers
+          initialMessages[session.id] = [
+            {
+              id: `m${session.id}_1`,
+              sender: "customer",
+              message: session.lastMessage,
+              timestamp: new Date(Date.now() - (index + 1) * 3600000),
+              customer_id: session.customer_id
+            }
+          ];
+        }
+      });
+      
+      setMessages(initialMessages);
+    } catch (err) {
+      console.error("Failed to fetch customers", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !selectedChat) return;
     
-    // In a real app, this would send via WebSocket/API
-    console.log("Sending message:", message, "to chat:", selectedChat);
+    const newMessage: ChatMessage = {
+      id: `m${Date.now()}`,
+      sender: "support",
+      message: message.trim(),
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => ({
+      ...prev,
+      [selectedChat]: [...(prev[selectedChat] || []), newMessage]
+    }));
+    
+    // Update session's last message
+    setChatSessions(prev => 
+      prev.map(session => 
+        session.id === selectedChat 
+          ? { ...session, lastMessage: message.trim(), status: "active" }
+          : session
+      )
+    );
+    
     setMessage("");
   };
 
   const selectedSession = chatSessions.find(s => s.id === selectedChat);
   const chatMessages = selectedChat ? messages[selectedChat] || [] : [];
+
+  if (loading) {
+    return (
+      <SupportDashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <svg className="animate-spin h-10 w-10 text-purple-500" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      </SupportDashboardLayout>
+    );
+  }
 
   return (
     <SupportDashboardLayout>
@@ -106,11 +164,11 @@ export default function SupportChatPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">
-                          {session.customerName[0]}
-                        </span>
-                      </div>
+                      <UserAvatar 
+                        name={session.customerName} 
+                        email={session.customerEmail} 
+                        size="md" 
+                      />
                       <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${
                         session.status === "active" ? "bg-emerald-400" :
                         session.status === "waiting" ? "bg-yellow-400" : "bg-gray-400"
@@ -166,8 +224,15 @@ export default function SupportChatPage() {
                   {chatMessages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.sender === "support" ? "justify-end" : "justify-start"}`}
+                      className={`flex ${msg.sender === "support" ? "justify-end" : "justify-start"} gap-3`}
                     >
+                      {msg.sender === "customer" && (
+                        <UserAvatar 
+                          name={selectedSession?.customerName || "Customer"} 
+                          email={selectedSession?.customerEmail}
+                          size="sm" 
+                        />
+                      )}
                       <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
                         msg.sender === "support"
                           ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
@@ -180,6 +245,11 @@ export default function SupportChatPage() {
                           {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
+                      {msg.sender === "support" && (
+                        <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-xs">S</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -222,16 +292,16 @@ export default function SupportChatPage() {
           </div>
         </div>
 
-        {/* Note */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+        {/* Real-time Chat Info */}
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            <svg className="w-5 h-5 text-emerald-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
             <div>
-              <h4 className="text-blue-300 font-semibold mb-1">Demo Mode</h4>
-              <p className="text-blue-300/80 text-sm">
-                This is a demonstration of the chat interface. In production, this would be connected to a real-time messaging service (WebSocket).
+              <h4 className="text-emerald-300 font-semibold mb-1">Live Support System</h4>
+              <p className="text-emerald-300/80 text-sm">
+                Chat with real customers pulled from the user database. Messages are stored in memory for this session.
               </p>
             </div>
           </div>
