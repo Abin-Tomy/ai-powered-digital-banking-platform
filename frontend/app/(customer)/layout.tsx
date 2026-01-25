@@ -5,10 +5,5 @@ export default function Layout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div>
-      <header>Role Layout</header>
-      <main>{children}</main>
-    </div>
-  );
+  return <>{children}</>;
 }
