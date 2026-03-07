@@ -52,6 +52,7 @@ interface SavedBiller {
   nickname: string;
   customer_id: string;
   category_name: string;
+  category_icon: string;
   is_favorite: boolean;
   is_autopay_enabled: boolean;
   pending_bills_count: number;

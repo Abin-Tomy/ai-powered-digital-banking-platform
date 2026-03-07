@@ -17,10 +17,21 @@ function ResetPasswordForm() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  const [tokenValid, setTokenValid] = useState(true);
+
   useEffect(() => {
     if (!token) {
       setError("Invalid or missing reset token. Please request a new reset link.");
+      setTokenValid(false);
+      return;
     }
+    // Validate token on mount
+    api.get(`/auth/reset-password/?token=${token}`)
+      .then(() => setTokenValid(true))
+      .catch(() => {
+        setError("Invalid or expired reset link. Please request a new one.");
+        setTokenValid(false);
+      });
   }, [token]);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -44,7 +55,7 @@ function ResetPasswordForm() {
     setLoading(true);
     setError("");
     try {
-      await api.post("/users/reset-password/", { token, password });
+      await api.post("/auth/reset-password/", { token, password });
       setSuccess(true);
       setTimeout(() => router.push("/login"), 3000);
     } catch {

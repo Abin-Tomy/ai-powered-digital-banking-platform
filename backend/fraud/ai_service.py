@@ -1,90 +1,147 @@
+"""
+AI Fraud Detection Service Integration.
+
+Builds real behavioral features from transaction data and calls the
+ML micro-service for fraud scoring.
+"""
 import requests
-import random
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-ML_SERVICE_URL = "http://127.0.0.1:9000/predict"
+from django.db.models import Avg, Count
+from django.utils import timezone
 
-def get_merchant_category(amount):
-    """Dynamically determine merchant category based on transaction amount"""
-    if amount < 50:
-        return random.choice(["food_dining", "transportation", "convenience"])
-    elif amount < 200:
-        return random.choice(["retail", "grocery", "pharmacy", "gas_station"])
-    elif amount < 1000:
-        return random.choice(["electronics", "clothing", "home_improvement", "healthcare"])
+from transactions.models import Transaction
+from django.conf import settings as django_settings
+
+ML_SERVICE_URL = getattr(django_settings, 'ML_SERVICE_URL', 'http://localhost:9000')
+
+
+# ── Feature helpers ──────────────────────────────────────────────
+
+def categorize_by_amount(amount):
+    """Determine merchant category based on transaction amount."""
+    if amount < 500:
+        return "retail"
+    elif amount < 2000:
+        return "dining"
+    elif amount < 10000:
+        return "travel"
     else:
-        return random.choice(["jewelry", "automotive", "travel", "real_estate"])
+        return "luxury"
 
-def calculate_device_trust_score(user):
-    """Calculate device trust score based on user login patterns"""
-    # In production, this would check device fingerprints, IP history, etc.
-    base_score = 0.8
-    
-    # Reduce trust for new accounts
-    account_age = (datetime.now() - user.date_joined.replace(tzinfo=None)).days
-    if account_age < 30:
-        base_score -= 0.2
-    
-    # Factor in failed login attempts
-    if user.failed_login_attempts > 0:
-        base_score -= (user.failed_login_attempts * 0.1)
-    
-    return max(0.1, min(1.0, base_score))
 
-def detect_location_mismatch(transaction):
-    """Detect if transaction location differs from usual patterns"""
-    # In production, this would check IP geolocation vs historical patterns
-    # For now, randomly flag 5% of transactions as location mismatches
-    return 1 if random.random() < 0.05 else 0
-
-def is_foreign_transaction(transaction):
-    """Check if transaction is international"""
-    # In production, check merchant country vs account country
-    # For now, randomly flag 10% as foreign
-    return 1 if random.random() < 0.10 else 0
-
-def predict_fraud(transaction):
+def build_fraud_features(transaction, account, user) -> dict:
     """
-    Calls AI fraud detection service.
-    Single source of truth for fraud evaluation.
+    Build a feature dict for the ML fraud service using *real*
+    behavioural signals derived from the transaction and user history.
     """
-    
-    # Calculate dynamic transaction velocity
-    last_24h = datetime.now() - timedelta(hours=24)
-    velocity_count = transaction.account.transactions.filter(
-        created_at__gte=last_24h
+    amount = float(transaction.amount)
+
+    # ── velocity: transactions in last 24 h ──
+    velocity_last_24h = Transaction.objects.filter(
+        account=account,
+        created_at__gte=timezone.now() - timedelta(hours=24),
     ).count()
-    
-    # Calculate user age (approximate from account creation)
-    account_age_days = (datetime.now() - transaction.account.owner.date_joined.replace(tzinfo=None)).days
-    estimated_age = 25 + min(40, account_age_days // 365 * 2)  # Estimate between 25-65
 
-    payload = {
-        "amount": float(transaction.amount),
-        "transaction_hour": transaction.created_at.hour,
-        "merchant_category": get_merchant_category(float(transaction.amount)),
-        "foreign_transaction": is_foreign_transaction(transaction),
-        "location_mismatch": detect_location_mismatch(transaction),
-        "device_trust_score": calculate_device_trust_score(transaction.account.owner),
-        "velocity_last_24h": velocity_count,
-        "cardholder_age": estimated_age,
+    # ── cardholder_age: years since sign-up ──
+    age_days = (timezone.now().date() - user.date_joined.date()).days
+    cardholder_age = max(age_days // 365, 0)
+
+    # ── foreign_transaction: amount > 4× user's personal average ──
+    avg_amount = Transaction.objects.filter(
+        account=account,
+    ).aggregate(avg=Avg("amount"))["avg"]
+
+    if avg_amount is None or amount > float(avg_amount) * 4:
+        foreign_transaction = 1
+    else:
+        foreign_transaction = 0
+
+    # ── location_mismatch: transacting at an unusual hour ──
+    past_hours = list(
+        Transaction.objects.filter(account=account)
+        .values_list("created_at__hour", flat=True)
+    )
+    current_hour = timezone.now().hour
+
+    if len(past_hours) < 5:
+        location_mismatch = 0          # not enough history to judge
+    elif current_hour not in past_hours:
+        location_mismatch = 1          # unusual hour for this user
+    else:
+        location_mismatch = 0
+
+    # ── device_trust_score (placeholder – will use device fingerprinting later) ──
+    device_trust_score = 0.8
+
+    return {
+        "amount": amount,
+        "transaction_hour": current_hour,
+        "device_trust_score": device_trust_score,
+        "velocity_last_24h": velocity_last_24h,
+        "cardholder_age": cardholder_age,
+        "foreign_transaction": foreign_transaction,
+        "location_mismatch": location_mismatch,
+        "merchant_category": categorize_by_amount(amount),
     }
 
+
+# ── Public API ──────────────────────────────────────────────────
+
+def predict_fraud(transaction, account, user):
+    """
+    Call the AI fraud-detection micro-service.
+
+    Returns a dict with keys: is_fraud, risk_score, reason.
+    On any failure the function returns is_fraud=False (fail-safe).
+    """
+    payload = build_fraud_features(transaction, account, user)
+
     try:
-        response = requests.post(ML_SERVICE_URL, json=payload, timeout=3)
+        response = requests.post(f"{ML_SERVICE_URL}/predict", json=payload, timeout=3)
         response.raise_for_status()
         result = response.json()
 
+        risk_score = int(abs(result["risk_score"]) * 100)
+
+        # Broadcast live alert if flagged as fraud
+        if result["is_fraud"]:
+            broadcast_fraud_alert(transaction, risk_score, user)
+
         return {
             "is_fraud": result["is_fraud"],
-            "risk_score": int(abs(result["risk_score"]) * 100),
-            "reason": "AI detected anomalous transaction"
+            "risk_score": risk_score,
+            "reason": "AI detected anomalous transaction",
         }
 
     except Exception:
-        # Banking-grade fail-safe: never block transaction on AI outage
+        # Banking-grade fail-safe: never block a transaction on AI outage
         return {
             "is_fraud": False,
             "risk_score": 0,
-            "reason": "AI service unavailable"
+            "reason": "AI service unavailable",
         }
+
+
+def broadcast_fraud_alert(transaction, risk_score, user):
+    """Push a real-time fraud alert to all connected admin/support dashboards."""
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "fraud_alerts",
+            {
+                "type": "fraud.alert",
+                "transaction_id": str(transaction.id),
+                "risk_score": round(float(risk_score), 4),
+                "amount": str(transaction.amount),
+                "user_email": user.email,
+                "timestamp": timezone.now().isoformat(),
+            },
+        )
+    except Exception:
+        # Never let alert broadcasting block or fail a transaction
+        pass
+

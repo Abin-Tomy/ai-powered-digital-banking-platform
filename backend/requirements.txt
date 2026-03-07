@@ -3,6 +3,8 @@ certifi==2026.1.4
 charset-normalizer==3.4.4
 Django==6.0
 django-cors-headers==4.9.0
+django-cryptography==1.1
+cryptography>=42.0
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
 idna==3.11
@@ -15,3 +17,8 @@ requests==2.32.5
 sqlparse==0.5.5
 tzdata==2025.3
 urllib3==2.6.3
+resend>=2.0.0
+channels==4.1.0
+channels-redis==4.2.0
+daphne==4.1.2
+python-dateutil>=2.8.0

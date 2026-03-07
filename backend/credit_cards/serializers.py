@@ -114,26 +114,34 @@ class CreditCardSerializer(serializers.ModelSerializer):
     card_type_name = serializers.CharField(source='card_type.name', read_only=True)
     outstanding_balance = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
     masked_card_number = serializers.CharField(read_only=True)
+    last_four = serializers.CharField(read_only=True)
     
     class Meta:
         model = CreditCard
         fields = [
-            'id', 'masked_card_number', 'cardholder_name', 'user', 'user_name',
+            'id', 'last_four', 'masked_card_number', 'cardholder_name', 'user', 'user_name',
             'card_type', 'card_type_name', 'credit_limit', 'available_credit',
             'outstanding_balance', 'cash_advance_limit', 'available_cash_advance',
             'expiry_date', 'issue_date', 'pin_set', 'status', 'reward_points',
             'minimum_due', 'due_date', 'last_statement_date', 'next_statement_date'
         ]
         read_only_fields = [
-            'id', 'user', 'masked_card_number', 'outstanding_balance',
+            'id', 'user', 'masked_card_number', 'last_four', 'outstanding_balance',
             'issue_date', 'reward_points'
         ]
 
 
-class CreditCardDetailSerializer(CreditCardSerializer):
-    """Detailed serializer for credit card with full card number (for owner only)"""
-    class Meta(CreditCardSerializer.Meta):
-        fields = CreditCardSerializer.Meta.fields + ['card_number', 'cvv']
+class CreditCardCreationSerializer(serializers.ModelSerializer):
+    """Used ONLY in the card creation response. Never elsewhere."""
+    card_number_full = serializers.SerializerMethodField()
+
+    def get_card_number_full(self, obj):
+        return obj.card_number  # Returns decrypted value once
+
+    class Meta:
+        model = CreditCard
+        fields = ['id', 'card_number_full', 'expiry_date',
+                  'last_four', 'card_type', 'credit_limit']
 
 
 class CreditCardTransactionSerializer(serializers.ModelSerializer):

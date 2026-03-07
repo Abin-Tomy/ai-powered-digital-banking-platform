@@ -11,7 +11,7 @@ from decimal import Decimal
 from .models import CreditCardType, CreditCardApplication, CreditCard, CreditCardTransaction, CreditCardStatement
 from .serializers import (
     CreditCardTypeSerializer, CreditCardApplicationCreateSerializer, CreditCardApplicationSerializer,
-    CreditCardApplicationUpdateSerializer, CreditCardSerializer, CreditCardDetailSerializer,
+    CreditCardApplicationUpdateSerializer, CreditCardSerializer, CreditCardCreationSerializer,
     CreditCardTransactionSerializer, CreditCardTransactionCreateSerializer,
     CreditCardStatementSerializer, CreditCardPaymentSerializer
 )
@@ -102,7 +102,17 @@ class CreditCardApplicationDetailView(generics.RetrieveUpdateAPIView):
                 credit_limit=application.approved_credit_limit,
                 available_credit=application.approved_credit_limit
             )
+            # Store the card for one-time response
+            self._created_card = credit_card
             return credit_card
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        # If a card was just created, return the full card number once
+        if hasattr(self, '_created_card'):
+            creation_data = CreditCardCreationSerializer(self._created_card).data
+            response.data['created_card'] = creation_data
+        return response
 
 
 class CreditCardListView(generics.ListAPIView):
@@ -122,8 +132,8 @@ class CreditCardDetailView(generics.RetrieveUpdateAPIView):
         return CreditCard.objects.filter(user=self.request.user)
 
     def get_serializer_class(self):
-        # Use detailed serializer with full card number for owner
-        return CreditCardDetailSerializer
+        # Use standard serializer — never exposes full card number
+        return CreditCardSerializer
 
 
 @api_view(['POST'])

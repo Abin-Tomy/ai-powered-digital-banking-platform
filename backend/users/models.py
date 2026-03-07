@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
+from django.conf import settings
 from django.utils import timezone
+import uuid as uuid_module
+from datetime import timedelta
 
 
 class UserManager(BaseUserManager):
@@ -54,3 +57,47 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class VerificationToken(models.Model):
+    """Token for email verification and password reset flows."""
+    TOKEN_TYPE_CHOICES = [
+        ('email_verify', 'Email Verification'),
+        ('password_reset', 'Password Reset'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='verification_tokens',
+    )
+    token = models.UUIDField(
+        default=uuid_module.uuid4,
+        unique=True,
+        db_index=True,
+    )
+    token_type = models.CharField(max_length=20, choices=TOKEN_TYPE_CHOICES)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['token', 'token_type'])]
+
+    def is_valid(self):
+        return not self.used and timezone.now() < self.expires_at
+
+    @classmethod
+    def create_for_user(cls, user, token_type, hours=24):
+        """Create a new token, invalidating any existing unused ones."""
+        cls.objects.filter(
+            user=user,
+            token_type=token_type,
+            used=False,
+        ).update(used=True)
+
+        return cls.objects.create(
+            user=user,
+            token_type=token_type,
+            expires_at=timezone.now() + timedelta(hours=hours),
+        )

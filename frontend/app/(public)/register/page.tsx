@@ -39,7 +39,7 @@ export default function RegisterPage() {
         role,
       });
 
-      router.push("/login?success=registered");
+      router.push("/login?message=verify-email");
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || "Registration failed. Please try again.";
       setError(errorMessage);
@@ -246,34 +246,6 @@ export default function RegisterPage() {
             </svg>
             <span className="text-purple-200 text-xs font-medium">Secure Registration Process</span>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 border rounded-lg"
-          />
-
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full p-3 border rounded-lg"
-          >
-            <option value="CUSTOMER">Customer</option>
-            <option value="SUPPORT">Support</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-
-          <button
-            onClick={handleRegister}
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50"
-          >
-            {isLoading ? "Creating account..." : "Register"}
-          </button>
         </div>
       </div>
     </div>

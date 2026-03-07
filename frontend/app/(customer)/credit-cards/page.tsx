@@ -344,6 +344,7 @@ export default function CreditCardsPage() {
                 </div>
               </div>
             ))
+          )}
         </div>
       </div>
     </DashboardLayout>

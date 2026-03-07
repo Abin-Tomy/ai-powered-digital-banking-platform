@@ -112,7 +112,7 @@ class TransferView(APIView):
 
             # ===== AI FRAUD DETECTION =====
             try:
-                fraud_result = predict_fraud(debit)
+                fraud_result = predict_fraud(debit, from_account, request.user)
                 if fraud_result["is_fraud"]:
                     FraudFlag.objects.create(
                         transaction=debit,

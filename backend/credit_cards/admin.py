@@ -42,16 +42,16 @@ class CreditCardApplicationAdmin(admin.ModelAdmin):
 class CreditCardAdmin(admin.ModelAdmin):
     list_display = ['masked_card_number', 'cardholder_name', 'user', 'card_type', 'credit_limit', 'available_credit', 'status']
     list_filter = ['status', 'card_type', 'issue_date', 'pin_set']
-    search_fields = ['card_number', 'cardholder_name', 'user__email', 'user__first_name', 'user__last_name']
+    search_fields = ['last_four', 'cardholder_name', 'user__email', 'user__first_name', 'user__last_name']
     ordering = ['-created_at']
-    readonly_fields = ['id', 'card_number', 'cvv', 'outstanding_balance', 'masked_card_number', 'created_at', 'updated_at']
+    readonly_fields = ['id', 'card_number', 'last_four', 'outstanding_balance', 'masked_card_number', 'created_at', 'updated_at']
     
     fieldsets = (
         ('Card Info', {
             'fields': ('id', 'card_number', 'masked_card_number', 'cardholder_name', 'user', 'card_type')
         }),
         ('Security', {
-            'fields': ('cvv', 'expiry_date', 'pin_set', 'status')
+            'fields': ('last_four', 'expiry_date', 'pin_set', 'status')
         }),
         ('Credit Limits', {
             'fields': ('credit_limit', 'available_credit', 'outstanding_balance', 'cash_advance_limit', 'available_cash_advance')

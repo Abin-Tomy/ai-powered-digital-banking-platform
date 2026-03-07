@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from .encryption import EncryptedCharField
 import uuid
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -86,7 +87,8 @@ class CreditCard(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    card_number = models.CharField(max_length=16, unique=True)
+    card_number = EncryptedCharField(max_length=16)
+    last_four = models.CharField(max_length=4, blank=True)
     cardholder_name = models.CharField(max_length=100)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='credit_cards')
     card_type = models.ForeignKey(CreditCardType, on_delete=models.CASCADE)
@@ -95,7 +97,6 @@ class CreditCard(models.Model):
     available_credit = models.DecimalField(max_digits=15, decimal_places=2)
     cash_advance_limit = models.DecimalField(max_digits=15, decimal_places=2)
     available_cash_advance = models.DecimalField(max_digits=15, decimal_places=2)
-    cvv = models.CharField(max_length=3)
     expiry_date = models.DateField()
     issue_date = models.DateField(auto_now_add=True)
     pin_set = models.BooleanField(default=False)
@@ -116,22 +117,23 @@ class CreditCard(models.Model):
         if not self.card_number:
             # Generate a 16-digit card number starting with 4 (Visa format)
             self.card_number = '4' + ''.join([str(random.randint(0, 9)) for _ in range(15)])
-        
-        if not self.cvv:
-            self.cvv = ''.join([str(random.randint(0, 9)) for _ in range(3)])
-        
+
+        # Auto-populate last_four from card_number
+        if self.card_number:
+            self.last_four = self.card_number[-4:]
+
         if not self.expiry_date:
             # Set expiry date to 4 years from now
             self.expiry_date = (datetime.now().date() + timedelta(days=4*365))
-        
+
         # Set available credit if not set
         if self.available_credit is None:
             self.available_credit = self.credit_limit
-        
+
         # Set cash advance limits
         if not self.cash_advance_limit:
             self.cash_advance_limit = self.credit_limit * (self.card_type.cash_advance_limit_percentage / 100)
-        
+
         if self.available_cash_advance is None:
             self.available_cash_advance = self.cash_advance_limit
 
