@@ -7,11 +7,13 @@ from .views import (
     CustomerLoansView,
     LoanDetailsView,
     AdminLoansView,
+    EMICalculatorView,
 )
 
 urlpatterns = [
     # Public endpoints
     path('loans/types/', LoanTypesView.as_view(), name='loan-types'),
+    path('loans/calculate-emi/', EMICalculatorView.as_view(), name='calculate-emi'),
     
     # Customer endpoints
     path('loans/applications/', LoanApplicationView.as_view(), name='loan-applications'),  # GET and POST

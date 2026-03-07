@@ -5,12 +5,29 @@ from rest_framework.permissions import AllowAny
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.cache import cache
+from django.http import JsonResponse
+import uuid
 
-from .models import User, VerificationToken
+from .models import User, VerificationToken, AuditLog, UserSession
 from .serializers import RegisterSerializer, UserSerializer
 from .email_service import send_verification_email, send_password_reset_email
 
+from django_ratelimit.decorators import ratelimit
+from django_ratelimit.exceptions import Ratelimited
+from django.utils.decorators import method_decorator
 
+
+def ratelimit_handler(request, exception):
+    if isinstance(exception, Ratelimited):
+        return JsonResponse(
+            {"detail": "Too many requests. Please try again later."},
+            status=429,
+        )
+    raise exception
+
+
+@method_decorator(ratelimit(key='ip', rate='3/m', method='POST', block=True), name='post')
 class RegisterView(APIView):
     permission_classes = []
 
@@ -34,6 +51,7 @@ class RegisterView(APIView):
         )
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 class LoginView(APIView):
     permission_classes = []
 
@@ -57,6 +75,8 @@ class LoginView(APIView):
                 user.is_locked = True
             user.save()
 
+            AuditLog.log(request, 'LOGIN_FAILED', 'User', user.id, f'Failed login for {email}')
+
             return Response(
                 {"detail": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -66,7 +86,21 @@ class LoginView(APIView):
         user.last_login_attempt = timezone.now()
         user.save()
 
+        # 2FA check
+        if user.totp_enabled:
+            temp_token = str(uuid.uuid4())
+            cache.set(f"2fa_temp_{temp_token}", user.id, 300)
+            return Response({
+                "requires_2fa": True,
+                "temp_token": temp_token,
+            })
+
         refresh = RefreshToken.for_user(user)
+
+        AuditLog.log(request, 'LOGIN_SUCCESS', 'User', user.id, f'Successful login for {email}')
+
+        # Create session record
+        self._create_session(request, user)
 
         return Response({
             "access": str(refresh.access_token),
@@ -74,12 +108,31 @@ class LoginView(APIView):
             "user": UserSerializer(user).data,
         })
 
+    def _create_session(self, request, user):
+        try:
+            from user_agents import parse as parse_ua
+            ua_string = request.META.get('HTTP_USER_AGENT', '')
+            ua = parse_ua(ua_string)
+            ip = (
+                request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+                or request.META.get('REMOTE_ADDR', '')
+            )
+            UserSession.objects.create(
+                user=user,
+                device_info=f"{ua.device.family} — {ua.os.family} {ua.os.version_string}",
+                browser=f"{ua.browser.family} {ua.browser.version_string}",
+                ip_address=ip or None,
+            )
+        except Exception:
+            pass
+
 
 class LogoutView(APIView):
     def post(self, request):
         refresh_token = request.data.get("refresh")
         token = RefreshToken(refresh_token)
         token.blacklist()
+        AuditLog.log(request, 'LOGOUT', 'User', request.user.id if request.user.is_authenticated else '')
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -139,6 +192,7 @@ class VerifyEmailView(APIView):
         return Response({"detail": "Email verified successfully."})
 
 
+@method_decorator(ratelimit(key='ip', rate='3/h', method='POST', block=True), name='post')
 class ForgotPasswordView(APIView):
     """POST /api/auth/forgot-password/ — request password reset email."""
     permission_classes = [AllowAny]
@@ -204,5 +258,7 @@ class ResetPasswordView(APIView):
         user.save()
         token_obj.used = True
         token_obj.save(update_fields=['used'])
+
+        AuditLog.log(request, 'PASSWORD_RESET', 'User', user.id, f'Password reset for {user.email}')
 
         return Response({"detail": "Password reset successful."})

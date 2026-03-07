@@ -12,6 +12,8 @@ from .serializers import (
     LoanTypeSerializer, LoanApplicationSerializer,
     LoanSerializer, LoanPaymentSerializer
 )
+from users.notification_views import push_notification
+from users.models import AuditLog
 
 
 class LoanTypesView(APIView):
@@ -117,6 +119,14 @@ class LoanApplicationApprovalView(APIView):
             application.reviewed_by = request.user
             application.save()
             
+            push_notification(
+                application.applicant, 'LOAN',
+                'Loan Approved',
+                f'Your loan application for ₹{approved_amount} has been approved.'
+            )
+            AuditLog.log(request, 'LOAN_APPROVED', 'LoanApplication', application.id,
+                         f'Approved amount: {approved_amount}')
+            
             return Response({'detail': 'Loan approved successfully'})
         
         elif action == 'reject':
@@ -125,6 +135,14 @@ class LoanApplicationApprovalView(APIView):
             application.reviewed_at = timezone.now()
             application.reviewed_by = request.user
             application.save()
+            
+            push_notification(
+                application.applicant, 'LOAN',
+                'Loan Application Rejected',
+                f'Your loan application has been rejected. Reason: {application.rejection_reason}'
+            )
+            AuditLog.log(request, 'LOAN_REJECTED', 'LoanApplication', application.id,
+                         f'Reason: {application.rejection_reason}')
             
             return Response({'detail': 'Loan application rejected'})
         
@@ -207,3 +225,71 @@ class AdminLoansView(APIView):
         loans = Loan.objects.all().order_by('-disbursed_at')
         serializer = LoanSerializer(loans, many=True)
         return Response(serializer.data)
+
+
+class EMICalculatorView(APIView):
+    """Public EMI calculator — no auth needed"""
+    permission_classes = []
+
+    def post(self, request):
+        try:
+            principal = float(request.data.get('principal', 0))
+            annual_rate = float(request.data.get('annual_interest_rate', 0))
+            tenure = int(request.data.get('tenure_months', 0))
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Invalid numeric values provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        errors = []
+        if not (1000 <= principal <= 10_000_000):
+            errors.append("principal must be between 1,000 and 10,000,000.")
+        if not (1.0 <= annual_rate <= 36.0):
+            errors.append("annual_interest_rate must be between 1.0 and 36.0.")
+        if not (3 <= tenure <= 360):
+            errors.append("tenure_months must be between 3 and 360.")
+        if errors:
+            return Response({"detail": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        r = annual_rate / 12 / 100
+        n = tenure
+
+        if r == 0:
+            emi = principal / n
+        else:
+            emi = principal * r * (1 + r) ** n / ((1 + r) ** n - 1)
+
+        emi = round(emi, 2)
+        total_payment = round(emi * n, 2)
+        total_interest = round(total_payment - principal, 2)
+
+        # Build amortization schedule
+        schedule = []
+        balance = principal
+        for month in range(1, n + 1):
+            interest_component = round(balance * r, 2)
+            principal_component = round(emi - interest_component, 2)
+            if month == n:
+                principal_component = round(balance, 2)
+                interest_component = round(emi - principal_component, 2)
+            balance = round(balance - principal_component, 2)
+            if balance < 0:
+                balance = 0.0
+            schedule.append({
+                "month": month,
+                "emi": emi,
+                "principal_component": principal_component,
+                "interest_component": interest_component,
+                "outstanding_balance": balance,
+            })
+
+        return Response({
+            "emi": emi,
+            "total_payment": total_payment,
+            "total_interest": total_interest,
+            "principal": principal,
+            "tenure_months": tenure,
+            "annual_interest_rate": annual_rate,
+            "amortization_schedule": schedule,
+        })

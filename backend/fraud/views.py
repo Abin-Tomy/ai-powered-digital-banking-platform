@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from .models import FraudFlag
 from .serializers import FraudFlagSerializer
+from users.models import AuditLog
 
 
 class FlaggedTransactionsView(APIView):
@@ -46,5 +47,8 @@ class ReviewFraudView(APIView):
         flag.reviewed_by = request.user
         flag.reviewed_at = timezone.now()
         flag.save()
+
+        AuditLog.log(request, 'FRAUD_REVIEW', 'FraudFlag', flag.id,
+                     f'Decision: {decision}')
 
         return Response(FraudFlagSerializer(flag).data)

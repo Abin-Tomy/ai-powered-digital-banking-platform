@@ -9,8 +9,10 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Calculator
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 import Link from 'next/link';
 import DashboardLayout from '../components/DashboardLayout';
@@ -25,6 +27,19 @@ interface LoanType {
   maximum_interest_rate: number;
   minimum_tenure_months: number;
   maximum_tenure_months: number;
+}
+
+interface EMIResult {
+  emi: number;
+  total_payment: number;
+  total_interest: number;
+  amortization_schedule: {
+    month: number;
+    emi: number;
+    principal_component: number;
+    interest_component: number;
+    outstanding_balance: number;
+  }[];
 }
 
 interface LoanApplication {
@@ -61,9 +76,24 @@ export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // EMI Calculator state
+  const [loanAmount, setLoanAmount] = useState(500000);
+  const [interestRate, setInterestRate] = useState(12);
+  const [tenure, setTenure] = useState(36);
+  const [emiResult, setEmiResult] = useState<EMIResult | null>(null);
+  const [emiLoading, setEmiLoading] = useState(false);
+  const [showAmortization, setShowAmortization] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Debounced EMI calculation
+  useEffect(() => {
+    const timer = setTimeout(() => calculateEMI(), 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loanAmount, interestRate, tenure]);
 
   const fetchData = async () => {
     try {
@@ -82,6 +112,24 @@ export default function LoansPage() {
       setLoading(false);
     }
   };
+
+  const calculateEMI = async () => {
+    setEmiLoading(true);
+    try {
+      const response = await api.post('/loans/calculate-emi/', {
+        principal: loanAmount,
+        annual_interest_rate: interestRate,
+        tenure_months: tenure
+      });
+      setEmiResult(response.data);
+    } catch {
+      // silently ignore - user is still adjusting
+    } finally {
+      setEmiLoading(false);
+    }
+  };
+
+  const formatINR = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -183,6 +231,152 @@ export default function LoansPage() {
             <div className="text-3xl font-bold text-white">₹{totalPaid.toLocaleString()}</div>
             <p className="text-purple-300 text-sm mt-1">Total paid</p>
           </div>
+        </div>
+
+        {/* EMI Calculator */}
+        <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-8 border border-purple-500/20">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <Calculator className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">EMI Calculator</h2>
+              <p className="text-purple-300 text-sm">Plan your loan with instant EMI calculations</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Sliders */}
+            <div className="space-y-6">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <label className="text-purple-200 text-sm font-semibold">Loan Amount</label>
+                  <span className="text-white font-bold">{formatINR(loanAmount)}</span>
+                </div>
+                <input type="range" min={10000} max={10000000} step={10000} value={loanAmount}
+                  onChange={(e) => setLoanAmount(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-700 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                <div className="flex justify-between text-xs text-purple-400 mt-1">
+                  <span>₹10K</span><span>₹1Cr</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-2">
+                  <label className="text-purple-200 text-sm font-semibold">Interest Rate</label>
+                  <span className="text-white font-bold">{interestRate}%</span>
+                </div>
+                <input type="range" min={5} max={24} step={0.5} value={interestRate}
+                  onChange={(e) => setInterestRate(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-700 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                <div className="flex justify-between text-xs text-purple-400 mt-1">
+                  <span>5%</span><span>24%</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-2">
+                  <label className="text-purple-200 text-sm font-semibold">Tenure</label>
+                  <span className="text-white font-bold">{tenure} months</span>
+                </div>
+                <input type="range" min={6} max={84} step={6} value={tenure}
+                  onChange={(e) => setTenure(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-700 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                <div className="flex justify-between text-xs text-purple-400 mt-1">
+                  <span>6 mo</span><span>84 mo</span>
+                </div>
+              </div>
+
+              {/* Result Cards */}
+              {emiResult && (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-slate-800/60 rounded-xl p-4 border border-purple-500/10 text-center">
+                    <div className="text-purple-300 text-xs mb-1">Monthly EMI</div>
+                    <div className="text-white font-bold text-lg">{formatINR(emiResult.emi)}</div>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-xl p-4 border border-emerald-500/10 text-center">
+                    <div className="text-purple-300 text-xs mb-1">Total Payment</div>
+                    <div className="text-emerald-400 font-bold text-lg">{formatINR(emiResult.total_payment)}</div>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-xl p-4 border border-red-500/10 text-center">
+                    <div className="text-purple-300 text-xs mb-1">Total Interest</div>
+                    <div className="text-red-400 font-bold text-lg">{formatINR(emiResult.total_interest)}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Donut Chart */}
+            <div className="flex flex-col items-center justify-center">
+              {emiResult ? (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={[
+                        { name: "Principal", value: loanAmount },
+                        { name: "Interest", value: emiResult.total_interest }
+                      ]} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" strokeWidth={0}>
+                        <Cell fill="#8b5cf6" />
+                        <Cell fill="#ef4444" />
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex gap-6 mt-2">
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500" /><span className="text-purple-300 text-sm">Principal</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span className="text-purple-300 text-sm">Interest</span></div>
+                  </div>
+                  <Link href="/loans/apply">
+                    <button className="mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2.5 px-6 rounded-xl transition-all hover:scale-[1.02] flex items-center gap-2 text-sm">
+                      <Plus className="h-4 w-4" /> Apply for This Loan
+                    </button>
+                  </Link>
+                </>
+              ) : (
+                <div className="text-purple-400 text-center">
+                  {emiLoading ? (
+                    <svg className="animate-spin h-8 w-8 text-purple-500 mx-auto" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  ) : "Adjust sliders to calculate"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Amortization Schedule */}
+          {emiResult && emiResult.amortization_schedule.length > 0 && (
+            <div className="mt-6">
+              <button onClick={() => setShowAmortization(!showAmortization)}
+                className="flex items-center gap-2 text-purple-300 hover:text-white transition-colors text-sm font-medium">
+                <svg className={`w-4 h-4 transition-transform ${showAmortization ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                {showAmortization ? "Hide" : "Show"} Amortization Schedule
+              </button>
+              {showAmortization && (
+                <div className="mt-4 overflow-x-auto rounded-xl border border-purple-500/20">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-800/80 text-purple-300">
+                        <th className="px-4 py-3 text-left">Month</th>
+                        <th className="px-4 py-3 text-right">EMI</th>
+                        <th className="px-4 py-3 text-right">Principal</th>
+                        <th className="px-4 py-3 text-right">Interest</th>
+                        <th className="px-4 py-3 text-right">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-500/10">
+                      {emiResult.amortization_schedule.map((row) => (
+                        <tr key={row.month} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="px-4 py-2.5 text-white">{row.month}</td>
+                          <td className="px-4 py-2.5 text-white text-right">{formatINR(row.emi)}</td>
+                          <td className="px-4 py-2.5 text-purple-300 text-right">{formatINR(row.principal_component)}</td>
+                          <td className="px-4 py-2.5 text-red-400 text-right">{formatINR(row.interest_component)}</td>
+                          <td className="px-4 py-2.5 text-white text-right">{formatINR(row.outstanding_balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Active Loans Section */}

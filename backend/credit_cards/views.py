@@ -17,6 +17,8 @@ from .serializers import (
 )
 from users.permissions import IsCustomer, IsAdmin
 from rest_framework import serializers
+from users.notification_views import push_notification
+from users.models import AuditLog
 
 
 class CreditCardTypeListView(generics.ListAPIView):
@@ -90,6 +92,19 @@ class CreditCardApplicationDetailView(generics.RetrieveUpdateAPIView):
         # If approved, create the credit card
         if instance.status == 'APPROVED' and not hasattr(instance, 'creditcard'):
             self.create_credit_card(instance)
+            push_notification(
+                instance.user, 'CREDIT_CARD',
+                'Credit Card Approved',
+                f'Your credit card application has been approved! Card limit: ₹{instance.approved_credit_limit}'
+            )
+            AuditLog.log(self.request, 'CREDIT_CARD_APPROVED', 'CreditCardApplication', instance.id)
+        elif instance.status == 'REJECTED':
+            push_notification(
+                instance.user, 'CREDIT_CARD',
+                'Credit Card Application Rejected',
+                'Your credit card application has been rejected.'
+            )
+            AuditLog.log(self.request, 'CREDIT_CARD_REJECTED', 'CreditCardApplication', instance.id)
 
     def create_credit_card(self, application):
         """Create credit card after approval"""

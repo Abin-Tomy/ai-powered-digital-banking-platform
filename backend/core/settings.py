@@ -176,6 +176,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'EXCEPTION_HANDLER': 'core.exception_handlers.custom_exception_handler',
 }
 
 SIMPLE_JWT = {
@@ -198,6 +199,16 @@ CORS_ALLOW_CREDENTIALS = True
 # Email service (Resend)
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+# Cache (used for 2FA temp tokens and rate limiting)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+
+# Rate limiting
+RATELIMIT_USE_CACHE = 'default'
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "onboarding@resend.dev")
 
 # ML Fraud Service

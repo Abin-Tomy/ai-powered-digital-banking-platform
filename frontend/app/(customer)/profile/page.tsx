@@ -10,10 +10,12 @@ interface UserProfile {
   email: string;
   first_name: string;
   last_name: string;
+  full_name: string;
   role: string;
   is_verified: boolean;
   is_active: boolean;
   created_at: string;
+  totp_enabled: boolean;
 }
 
 interface Account {
@@ -25,14 +27,35 @@ interface Account {
   created_at: string;
 }
 
+interface Session {
+  session_id: string;
+  device_info: string;
+  browser: string;
+  ip_address: string;
+  created_at: string;
+  last_active: string;
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // 2FA state
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [qrCode, setQrCode] = useState("");
+  const [manualKey, setManualKey] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [totpStep, setTotpStep] = useState<"idle" | "setup" | "disable">("idle");
+  const [totpMsg, setTotpMsg] = useState("");
+
+  // Sessions state
+  const [sessions, setSessions] = useState<Session[]>([]);
+
   useEffect(() => {
     fetchProfileData();
+    fetchSessions();
   }, []);
 
   const fetchProfileData = async () => {
@@ -46,6 +69,7 @@ export default function ProfilePage() {
       ]);
       
       setProfile(profileRes.data);
+      setTotpEnabled(profileRes.data.totp_enabled ?? false);
       setAccounts(accountsRes.data);
     } catch (err) {
       console.error("Failed to fetch profile", err);
@@ -53,6 +77,75 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const res = await api.get("/users/sessions/");
+      setSessions(res.data);
+    } catch { /* ignore */ }
+  };
+
+  const handleSetup2FA = async () => {
+    setTotpMsg("");
+    try {
+      const res = await api.post("/auth/2fa/setup/");
+      setQrCode(res.data.qr_code);
+      setManualKey(res.data.manual_entry_key);
+      setTotpStep("setup");
+    } catch {
+      setTotpMsg("Failed to set up 2FA");
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    setTotpMsg("");
+    try {
+      await api.post("/auth/2fa/verify/", { code: totpCode });
+      setTotpEnabled(true);
+      setTotpStep("idle");
+      setTotpCode("");
+      setTotpMsg("2FA enabled successfully!");
+    } catch {
+      setTotpMsg("Invalid code. Try again.");
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    setTotpMsg("");
+    try {
+      await api.post("/auth/2fa/disable/", { code: totpCode });
+      setTotpEnabled(false);
+      setTotpStep("idle");
+      setTotpCode("");
+      setTotpMsg("2FA disabled.");
+    } catch {
+      setTotpMsg("Invalid code.");
+    }
+  };
+
+  const revokeSession = async (sessionId: string) => {
+    try {
+      await api.delete(`/users/sessions/${sessionId}/`);
+      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
+    } catch { /* ignore */ }
+  };
+
+  const revokeAllOtherSessions = async () => {
+    try {
+      await api.delete("/users/sessions/");
+      fetchSessions();
+    } catch { /* ignore */ }
+  };
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Active now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   };
 
   const getTotalBalance = () => {
@@ -251,6 +344,141 @@ export default function ProfilePage() {
                       Change Password →
                     </a>
                   </div>
+                </div>
+              </div>
+
+              {/* Two-Factor Authentication */}
+              <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/20">
+                <h3 className="text-xl font-bold text-white mb-4">Two-Factor Authentication</h3>
+                {totpMsg && (
+                  <div className={`mb-4 p-3 rounded-xl text-sm ${totpMsg.includes("success") || totpMsg === "2FA disabled." ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-red-500/10 text-red-400 border border-red-500/30"}`}>
+                    {totpMsg}
+                  </div>
+                )}
+
+                {totpEnabled && totpStep === "idle" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">2FA Active</span>
+                      <span className="text-emerald-300 text-sm">Your account is protected with two-factor authentication.</span>
+                    </div>
+                    <button
+                      onClick={() => { setTotpStep("disable"); setTotpCode(""); setTotpMsg(""); }}
+                      className="px-4 py-2 rounded-xl text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors text-sm font-medium"
+                    >
+                      Disable 2FA
+                    </button>
+                  </div>
+                )}
+
+                {!totpEnabled && totpStep === "idle" && (
+                  <div className="space-y-4">
+                    <p className="text-purple-300 text-sm">
+                      Two-factor authentication adds an extra layer of security to your account.
+                    </p>
+                    <button
+                      onClick={handleSetup2FA}
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium text-sm hover:opacity-90 transition-opacity"
+                    >
+                      Enable 2FA
+                    </button>
+                  </div>
+                )}
+
+                {totpStep === "setup" && (
+                  <div className="space-y-4">
+                    <p className="text-purple-300 text-sm">Scan this QR code with Google Authenticator or Authy:</p>
+                    {qrCode && <img src={qrCode} alt="2FA QR Code" className="w-48 h-48 mx-auto rounded-xl bg-white p-2" />}
+                    <div className="bg-slate-800/50 rounded-xl p-3">
+                      <div className="text-purple-400 text-xs mb-1">Manual entry key:</div>
+                      <div className="text-white font-mono text-sm tracking-wider">{manualKey}</div>
+                    </div>
+                    <div>
+                      <label className="text-purple-200 text-sm font-medium mb-2 block">Enter the 6-digit code to confirm</label>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          value={totpCode}
+                          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="000000"
+                          className="px-4 py-2.5 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white text-center font-mono tracking-widest w-40 focus:outline-none focus:border-purple-400"
+                          maxLength={6}
+                        />
+                        <button onClick={handleVerify2FA} disabled={totpCode.length !== 6}
+                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-40">
+                          Activate 2FA
+                        </button>
+                      </div>
+                    </div>
+                    <button onClick={() => { setTotpStep("idle"); setTotpMsg(""); }} className="text-purple-400 text-sm hover:text-purple-300">Cancel</button>
+                  </div>
+                )}
+
+                {totpStep === "disable" && (
+                  <div className="space-y-4">
+                    <p className="text-purple-300 text-sm">Enter your current TOTP code to disable 2FA:</p>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="000000"
+                        className="px-4 py-2.5 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white text-center font-mono tracking-widest w-40 focus:outline-none focus:border-purple-400"
+                        maxLength={6}
+                      />
+                      <button onClick={handleDisable2FA} disabled={totpCode.length !== 6}
+                        className="px-6 py-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 font-medium text-sm hover:bg-red-500/30 transition-colors disabled:opacity-40">
+                        Confirm Disable
+                      </button>
+                    </div>
+                    <button onClick={() => { setTotpStep("idle"); setTotpMsg(""); }} className="text-purple-400 text-sm hover:text-purple-300">Cancel</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Active Sessions */}
+              <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/20">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-white">Active Sessions</h3>
+                  {sessions.length > 1 && (
+                    <button onClick={revokeAllOtherSessions} className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 px-3 py-1 rounded-lg hover:bg-red-500/10 transition-colors">
+                      Revoke All Other Sessions
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {sessions.length === 0 ? (
+                    <p className="text-purple-400 text-sm text-center py-4">No active sessions</p>
+                  ) : (
+                    sessions.map((s, idx) => (
+                      <div key={s.session_id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {s.device_info.toLowerCase().includes("mobile") ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              )}
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-white text-sm font-medium">{s.browser}</div>
+                            <div className="text-purple-400 text-xs">{s.device_info} · {s.ip_address}</div>
+                            <div className="text-purple-500 text-xs">{timeAgo(s.last_active)}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {idx === 0 && <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Current</span>}
+                          {idx !== 0 && (
+                            <button onClick={() => revokeSession(s.session_id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Revoke">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

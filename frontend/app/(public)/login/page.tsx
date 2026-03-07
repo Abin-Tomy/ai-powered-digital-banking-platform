@@ -12,6 +12,22 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
+  // 2FA state
+  const [needs2FA, setNeeds2FA] = useState(false);
+  const [tempToken, setTempToken] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+
+  const completeLogin = (data: { access: string; refresh: string; user: { role: string } }) => {
+    localStorage.setItem("access_token", data.access);
+    localStorage.setItem("refresh_token", data.refresh);
+    document.cookie = `access_token=${data.access}; path=/; max-age=86400`;
+    document.cookie = `role=${data.user.role}; path=/; max-age=86400`;
+    const role = data.user.role?.toUpperCase();
+    if (role === "ADMIN") router.push("/admin-dashboard");
+    else if (role === "SUPPORT") router.push("/support-dashboard");
+    else router.push("/customer-dashboard");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -24,30 +40,16 @@ export default function LoginPage() {
     }
 
     try {
-      const response = await api.post("/auth/login/", {
-        email,
-        password,
-      });
+      const response = await api.post("/auth/login/", { email, password });
 
-      const { access, refresh, user } = response.data;
-
-      // Store tokens
-      localStorage.setItem("access_token", access);
-      localStorage.setItem("refresh_token", refresh);
-
-      // Set cookies for middleware auth
-      document.cookie = `access_token=${access}; path=/; max-age=86400`;
-      document.cookie = `role=${user.role}; path=/; max-age=86400`;
-
-      // Redirect based on role
-      const role = user.role?.toUpperCase();
-      if (role === "ADMIN") {
-        router.push("/admin-dashboard");
-      } else if (role === "SUPPORT") {
-        router.push("/support-dashboard");
-      } else {
-        router.push("/customer-dashboard");
+      if (response.data.requires_2fa) {
+        setTempToken(response.data.temp_token);
+        setNeeds2FA(true);
+        setIsLoading(false);
+        return;
       }
+
+      completeLogin(response.data);
     } catch (err: unknown) {
       interface AxiosError {
         response?: {
@@ -59,6 +61,23 @@ export default function LoginPage() {
       const axiosErr = err as AxiosError;
       const errorMessage = axiosErr.response?.data?.detail || "Login failed. Please check your credentials.";
       setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+
+  const handle2FASubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    try {
+      const response = await api.post("/auth/2fa/authenticate/", {
+        temp_token: tempToken,
+        code: totpCode,
+      });
+      completeLogin(response.data);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      setError(axiosErr.response?.data?.detail || "Invalid code. Try again.");
       setIsLoading(false);
     }
   };
@@ -193,6 +212,51 @@ export default function LoginPage() {
                     )}
 
                     {/* Form */}
+                    {needs2FA ? (
+                      <form onSubmit={handle2FASubmit} className="space-y-6">
+                        <div className="text-center mb-2">
+                          <div className="w-16 h-16 mx-auto mb-4 bg-purple-500/20 rounded-2xl flex items-center justify-center">
+                            <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                          </div>
+                          <h3 className="text-xl font-bold text-white mb-1">Enter Authentication Code</h3>
+                          <p className="text-purple-300 text-sm">Open your authenticator app and enter the 6-digit code</p>
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={totpCode}
+                            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            placeholder="000000"
+                            autoFocus
+                            className="w-full px-4 py-4 bg-slate-800/50 border-b-2 border-purple-500/50 text-white text-center text-2xl font-mono tracking-[0.5em] placeholder-slate-500 focus:outline-none focus:border-purple-400 focus:bg-slate-800/80 transition-all duration-200"
+                            maxLength={6}
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isLoading || totpCode.length !== 6}
+                          className="w-full bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                        >
+                          {isLoading ? (
+                            <>
+                              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span>Verifying...</span>
+                            </>
+                          ) : (
+                            <span>Verify</span>
+                          )}
+                        </button>
+                        <button type="button" onClick={() => { setNeeds2FA(false); setTotpCode(""); setError(""); }}
+                          className="w-full text-purple-400 hover:text-purple-300 text-sm mt-2">
+                          ← Back to login
+                        </button>
+                      </form>
+                    ) : (
                     <form onSubmit={handleSubmit} className="space-y-6">
                       {/* Email Input */}
                       <div>
@@ -288,14 +352,17 @@ export default function LoginPage() {
                           )}
                         </button>
                     </form>
+                    )}
 
                     {/* Register Link */}
+                    {!needs2FA && (
                     <p className="mt-6 text-center text-sm text-purple-300">
                       Don&apos;t have an account?{" "}
                       <a href="/register" className="text-purple-400 hover:text-purple-300 font-semibold transition-colors">
                         Register
                       </a>
                     </p>
+                    )}
                   </div>
                 </div>
               </div>
