@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "@/lib/api";
 import AdminDashboardLayout from "../../components/AdminDashboardLayout";
 
@@ -14,6 +14,15 @@ interface FraudFlag {
   reviewed_at: string | null;
 }
 
+interface LiveAlert {
+  id: string;
+  transaction_id: string;
+  risk_score: number;
+  amount: string;
+  user_email: string;
+  timestamp: string;
+}
+
 export default function FraudDetectionPage() {
   const [fraudFlags, setFraudFlags] = useState<FraudFlag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,9 +31,44 @@ export default function FraudDetectionPage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [liveAlerts, setLiveAlerts] = useState<LiveAlert[]>([]);
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     fetchFraudFlags();
+
+    // Connect to fraud alert WebSocket
+    const wsBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws");
+    const ws = new WebSocket(`${wsBase}/ws/fraud-alerts/`);
+
+    ws.onopen = () => setWsConnected(true);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "fraud_alert") {
+        const alert: LiveAlert = {
+          id: `alert-${Date.now()}`,
+          transaction_id: data.transaction_id,
+          risk_score: data.risk_score,
+          amount: data.amount,
+          user_email: data.user_email,
+          timestamp: data.timestamp,
+        };
+        setLiveAlerts((prev) => [alert, ...prev].slice(0, 20));
+        // Also refresh the flags table
+        fetchFraudFlags();
+      }
+    };
+
+    ws.onclose = () => setWsConnected(false);
+    ws.onerror = () => setWsConnected(false);
+
+    wsRef.current = ws;
+
+    return () => {
+      ws.close();
+    };
   }, []);
 
   const fetchFraudFlags = async () => {
@@ -34,7 +78,8 @@ export default function FraudDetectionPage() {
       const response = await api.get("/fraud/flags/", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFraudFlags(response.data);
+      const data = response.data;
+      setFraudFlags(Array.isArray(data) ? data : data.results || []);
     } catch (err) {
       console.error("Failed to fetch fraud flags", err);
       setError("Failed to load fraud flags");
@@ -60,7 +105,7 @@ export default function FraudDetectionPage() {
 
       setSuccess(`Transaction marked as ${decision === "CONFIRMED_FRAUD" ? "Confirmed Fraud" : "False Positive"}`);
       setSelectedFlag(null);
-      fetchFraudFlags(); // Refresh list
+      fetchFraudFlags();
     } catch (err: unknown) {
       interface AxiosError {
         response?: { data?: { detail?: string } };
@@ -92,10 +137,50 @@ export default function FraudDetectionPage() {
   return (
     <AdminDashboardLayout>
       <div className="space-y-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white mb-2">Fraud Detection</h1>
-          <p className="text-purple-300">Review and manage suspicious transactions</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Fraud Detection</h1>
+            <p className="text-purple-300">Review and manage suspicious transactions</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${wsConnected ? "bg-red-500 animate-pulse" : "bg-gray-500"}`}></div>
+            <span className={`text-sm font-medium ${wsConnected ? "text-red-400" : "text-gray-400"}`}>
+              {wsConnected ? "Live Monitoring" : "Disconnected"}
+            </span>
+          </div>
         </div>
+
+        {/* Live Fraud Alerts Banner */}
+        {liveAlerts.length > 0 && (
+          <div className="space-y-3">
+            {liveAlerts.slice(0, 3).map((alert) => (
+              <div key={alert.id} className="bg-red-500/10 border border-red-500/40 rounded-xl p-4 animate-pulse-once">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
+                      <svg className="w-6 h-6 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-red-400 font-bold text-sm">FRAUD ALERT</div>
+                      <div className="text-white text-sm">
+                        Transaction ...{alert.transaction_id.slice(-8)} | Amount: ${alert.amount} | Risk: {(alert.risk_score)}%
+                      </div>
+                      <div className="text-red-300/70 text-xs">{alert.user_email} at {new Date(alert.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setLiveAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
+                    className="text-red-400 hover:text-red-300 text-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Messages */}
         {error && (

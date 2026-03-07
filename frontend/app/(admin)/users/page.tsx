@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import AdminDashboardLayout from "../components/AdminDashboardLayout";
+import UserAvatar from "@/components/UserAvatar";
 
 interface User {
   id: string;
@@ -42,7 +43,8 @@ export default function UsersPage() {
       const response = await api.get("/admin/users/", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setUsers(response.data);
+      const data = response.data;
+      setUsers(Array.isArray(data) ? data : data.results || []);
     } catch (err) {
       console.error("Failed to fetch users", err);
       setError("Failed to load users");
@@ -170,7 +172,16 @@ export default function UsersPage() {
                 ) : (
                   filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-slate-800/50 transition-colors">
-                      <td className="p-4 text-white font-medium">{user.full_name}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar 
+                            name={user.full_name} 
+                            email={user.email} 
+                            size="sm" 
+                          />
+                          <span className="text-white font-medium">{user.full_name}</span>
+                        </div>
+                      </td>
                       <td className="p-4 text-purple-300">{user.email}</td>
                       <td className="p-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${

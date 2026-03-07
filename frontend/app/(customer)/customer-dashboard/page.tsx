@@ -170,6 +170,67 @@ export default function CustomerDashboard() {
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="mb-6">
+            <h3 className="text-xl font-bold text-white">Quick Actions</h3>
+            <p className="text-purple-300 text-sm mt-1">Access banking services quickly</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="/transfer" className="group">
+              <div className="bg-gradient-to-br from-blue-500/20 to-purple-600/20 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-200 group-hover:scale-105">
+                <div className="flex flex-col items-center text-center space-y-2">
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                  </div>
+                  <span className="text-white font-medium text-sm">Transfer</span>
+                </div>
+              </div>
+            </a>
+            
+            <a href="/loans" className="group">
+              <div className="bg-gradient-to-br from-emerald-500/20 to-teal-600/20 rounded-xl p-4 border border-emerald-500/20 hover:border-emerald-400/40 transition-all duration-200 group-hover:scale-105">
+                <div className="flex flex-col items-center text-center space-y-2">
+                  <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/30 transition-colors">
+                    <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-white font-medium text-sm">Loans</span>
+                </div>
+              </div>
+            </a>
+
+            <a href="/credit-cards" className="group">
+              <div className="bg-gradient-to-br from-amber-500/20 to-orange-600/20 rounded-xl p-4 border border-amber-500/20 hover:border-amber-400/40 transition-all duration-200 group-hover:scale-105">
+                <div className="flex flex-col items-center text-center space-y-2">
+                  <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center group-hover:bg-amber-500/30 transition-colors">
+                    <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <span className="text-white font-medium text-sm">Credit Cards</span>
+                </div>
+              </div>
+            </a>
+
+            <a href="/bill-payments" className="group">
+              <div className="bg-gradient-to-br from-red-500/20 to-pink-600/20 rounded-xl p-4 border border-red-500/20 hover:border-red-400/40 transition-all duration-200 group-hover:scale-105">
+                <div className="flex flex-col items-center text-center space-y-2">
+                  <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center group-hover:bg-red-500/30 transition-colors">
+                    <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <span className="text-white font-medium text-sm">Bill Payments</span>
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
+
         {/* Recent Transactions */}
         <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-purple-500/20 overflow-hidden">
           <div className="p-6 border-b border-purple-500/20">

@@ -38,5 +38,12 @@ class FraudFlag(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['-created_at']),
+        ]
+
     def __str__(self):
         return f"FraudFlag {self.transaction.id} – {self.status}"

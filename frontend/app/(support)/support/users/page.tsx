@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import SupportDashboardLayout from "../../components/SupportDashboardLayout";
+import UserAvatar from "@/components/UserAvatar";
 
 interface User {
   id: string;
@@ -33,8 +34,10 @@ export default function SupportUsersPage() {
       const response = await api.get("/admin/users/", {
         headers: { Authorization: `Bearer ${token}` }
       });
+      const data = response.data;
+      const allUsers = Array.isArray(data) ? data : data.results || [];
       // Filter to show only customers for support staff
-      setUsers(response.data.filter((u: User) => u.role === "CUSTOMER"));
+      setUsers(allUsers.filter((u: User) => u.role === "CUSTOMER"));
     } catch (err) {
       console.error("Failed to fetch users", err);
       setError("Unable to load user list. You may not have permission to view users.");
@@ -120,11 +123,11 @@ export default function SupportUsersPage() {
                     <tr key={user.id} className="border-b border-purple-500/10 hover:bg-purple-500/5 transition-all">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">
-                              {user.first_name?.[0] || user.email[0].toUpperCase()}
-                            </span>
-                          </div>
+                          <UserAvatar 
+                            name={`${user.first_name} ${user.last_name}`} 
+                            email={user.email} 
+                            size="sm" 
+                          />
                           <div>
                             <div className="text-white font-medium">
                               {user.first_name} {user.last_name}

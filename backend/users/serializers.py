@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import User
+from .models import User, Notification, AuditLog
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -27,4 +27,21 @@ class UserSerializer(serializers.ModelSerializer):
             "full_name",
             "role",
             "is_verified",
+            "totp_enabled",
         ]
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'notification_type', 'title', 'message', 'is_read', 'created_at']
+        read_only_fields = fields
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source='user.email', read_only=True, default=None)
+
+    class Meta:
+        model = AuditLog
+        fields = ['id', 'user', 'user_email', 'action', 'resource_type', 'resource_id', 'detail', 'ip_address', 'created_at']
+        read_only_fields = fields

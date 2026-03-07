@@ -12,16 +12,12 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-from pathlib import Path
+from datetime import timedelta
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
-
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -33,7 +29,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     raise Exception("DJANGO_SECRET_KEY is missing")
 
-DEBUG = os.getenv("DJANGO_DEBUG") == "True"
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
 
@@ -49,6 +45,7 @@ AUTHENTICATION_BACKENDS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -57,17 +54,33 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework_simplejwt.token_blacklist',
     'rest_framework',
+    'channels',
     'users',
     'accounts',
     'transactions',
     'fraud',
+    'loans',
+    'credit_cards',
+    'bill_payments',
+    'support',
     'corsheaders',
-
+    'drf_spectacular',
 ]
 
+ASGI_APPLICATION = 'core.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.environ.get("REDIS_URL", "redis://127.0.0.1:6379")],
+        },
+    }
+}
+
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -127,6 +140,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -153,10 +167,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-from datetime import timedelta
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -165,20 +179,121 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'EXCEPTION_HANDLER': 'core.exception_handlers.custom_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': (
+        'rest_framework_simplejwt.tokens.AccessToken',
+    ),
 }
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:3000'
+).split(',')
+
+CORS_ALLOW_METHODS = [
+    'DELETE', 'GET', 'OPTIONS',
+    'PATCH', 'POST', 'PUT',
+]
+CORS_ALLOW_HEADERS = [
+    'accept', 'accept-encoding', 'authorization',
+    'content-type', 'dnt', 'origin',
+    'user-agent', 'x-csrftoken', 'x-requested-with',
 ]
 
-CORS_ALLOW_CREDENTIALS = True
 
+# Email service (Resend)
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+# Cache (used for 2FA temp tokens and rate limiting)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+
+# Rate limiting
+RATELIMIT_USE_CACHE = 'default'
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "onboarding@resend.dev")
+
+# ML Fraud Service
+ML_SERVICE_URL = os.getenv('ML_SERVICE_URL', 'http://localhost:9000')
+
+# API Documentation (drf-spectacular)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Digital Bank API',
+    'DESCRIPTION': '''
+AI-Powered Digital Banking Platform API.
+
+## Authentication
+Use JWT Bearer tokens. Obtain tokens via POST /api/auth/login/
+
+Include in headers:
+`Authorization: Bearer <access_token>`
+
+## Roles
+- **CUSTOMER**: Access to own banking features
+- **SUPPORT**: Customer lookup + fraud review
+- **ADMIN**: Full system access
+    ''',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'auth', 'description': 'Authentication & JWT'},
+        {'name': 'accounts', 'description': 'Bank account management'},
+        {'name': 'transactions', 'description': 'Transfers & statements'},
+        {'name': 'fraud', 'description': 'Fraud detection & review'},
+        {'name': 'loans', 'description': 'Loan applications & EMI'},
+        {'name': 'credit-cards', 'description': 'Credit card management'},
+        {'name': 'bill-payments', 'description': 'Bill payments & autopay'},
+        {'name': 'notifications', 'description': 'In-app notifications'},
+        {'name': 'analytics', 'description': 'Spending & admin analytics'},
+        {'name': '2fa', 'description': 'Two-factor authentication'},
+        {'name': 'admin', 'description': 'Admin-only endpoints'},
+    ]
+}
+
+# Session security
+SESSION_COOKIE_AGE = 3600  # 1 hour
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Production security settings
+if not DEBUG:
+    # HTTPS enforcement
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Cookie security
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_HTTPONLY = True
+
+    # Clickjacking protection
+    X_FRAME_OPTIONS = 'DENY'
+
+    # Content type sniffing
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
+    # XSS protection
+    SECURE_BROWSER_XSS_FILTER = True

@@ -1,131 +1,171 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import api from "@/lib/api";
 import SupportDashboardLayout from "../components/SupportDashboardLayout";
+import UserAvatar from "@/components/UserAvatar";
 
 interface ChatMessage {
   id: string;
-  sender: "customer" | "support";
+  sender: string;
+  sender_role: "CUSTOMER" | "SUPPORT";
   message: string;
-  timestamp: Date;
+  timestamp: string;
 }
 
-interface ChatSession {
+interface Customer {
   id: string;
-  customerName: string;
-  customerEmail: string;
-  status: "active" | "waiting" | "closed";
-  lastMessage: string;
-  unread: number;
+  full_name: string;
+  email: string;
 }
 
 export default function SupportChatPage() {
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  
-  // Mock data - In a real app, this would come from a WebSocket/API
-  const [chatSessions] = useState<ChatSession[]>([
-    {
-      id: "1",
-      customerName: "John Doe",
-      customerEmail: "john@example.com",
-      status: "active",
-      lastMessage: "I need help with my transfer",
-      unread: 2
-    },
-    {
-      id: "2",
-      customerName: "Jane Smith",
-      customerEmail: "jane@example.com",
-      status: "waiting",
-      lastMessage: "My account is locked",
-      unread: 1
-    },
-    {
-      id: "3",
-      customerName: "Bob Wilson",
-      customerEmail: "bob@example.com",
-      status: "closed",
-      lastMessage: "Thank you for your help!",
-      unread: 0
-    }
-  ]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [messages] = useState<Record<string, ChatMessage[]>>({
-    "1": [
-      { id: "m1", sender: "customer", message: "Hello, I need help with a transfer", timestamp: new Date(Date.now() - 3600000) },
-      { id: "m2", sender: "support", message: "Hi! I'd be happy to help. What seems to be the issue?", timestamp: new Date(Date.now() - 3500000) },
-      { id: "m3", sender: "customer", message: "I tried to transfer money but it says insufficient balance", timestamp: new Date(Date.now() - 3400000) },
-      { id: "m4", sender: "customer", message: "I need help with my transfer", timestamp: new Date(Date.now() - 60000) },
-    ],
-    "2": [
-      { id: "m5", sender: "customer", message: "My account seems to be locked", timestamp: new Date(Date.now() - 1800000) },
-    ],
-    "3": [
-      { id: "m6", sender: "customer", message: "Thank you for your help!", timestamp: new Date(Date.now() - 86400000) },
-      { id: "m7", sender: "support", message: "You're welcome! Have a great day!", timestamp: new Date(Date.now() - 86300000) },
-    ]
-  });
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Connect/disconnect WebSocket when selectedChat changes
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    // Close existing connection
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    setMessages([]);
+    setConnected(false);
+
+    const wsBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws");
+    const ws = new WebSocket(`${wsBase}/ws/chat/${selectedChat}/`);
+
+    ws.onopen = () => setConnected(true);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "message") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}-${Math.random()}`,
+            sender: data.sender,
+            sender_role: data.sender_role,
+            message: data.message,
+            timestamp: data.timestamp,
+          },
+        ]);
+      }
+    };
+
+    ws.onclose = () => setConnected(false);
+    ws.onerror = () => setConnected(false);
+
+    wsRef.current = ws;
+
+    return () => {
+      ws.close();
+    };
+  }, [selectedChat]);
+
+  const fetchCustomers = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const usersRes = await api.get("/admin/users/", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const allUsers = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.results || [];
+      const customerUsers = allUsers.filter(
+        (user: any) => user.role === "CUSTOMER"
+      );
+      setCustomers(customerUsers);
+    } catch (err) {
+      console.error("Failed to fetch customers", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !selectedChat) return;
-    
-    // In a real app, this would send via WebSocket/API
-    console.log("Sending message:", message, "to chat:", selectedChat);
+    if (!message.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    wsRef.current.send(
+      JSON.stringify({
+        message: message.trim(),
+        sender: "Support Agent",
+        sender_role: "SUPPORT",
+      })
+    );
     setMessage("");
   };
 
-  const selectedSession = chatSessions.find(s => s.id === selectedChat);
-  const chatMessages = selectedChat ? messages[selectedChat] || [] : [];
+  const selectedCustomer = customers.find((c) => c.id === selectedChat);
+
+  if (loading) {
+    return (
+      <SupportDashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <svg className="animate-spin h-10 w-10 text-purple-500" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      </SupportDashboardLayout>
+    );
+  }
 
   return (
     <SupportDashboardLayout>
       <div className="space-y-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white mb-2">Support Chat</h1>
-          <p className="text-purple-300">Assist customers in real-time</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Support Chat</h1>
+            <p className="text-purple-300">Assist customers in real-time via WebSocket</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${connected ? "bg-emerald-400 animate-pulse" : "bg-gray-500"}`}></div>
+            <span className={`text-sm font-medium ${connected ? "text-emerald-400" : "text-gray-400"}`}>
+              {connected ? "Connected" : "Disconnected"}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
-          {/* Chat List */}
+          {/* Customer List */}
           <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-purple-500/20 overflow-hidden flex flex-col">
             <div className="p-4 border-b border-purple-500/20">
-              <h2 className="text-lg font-bold text-white">Conversations</h2>
+              <h2 className="text-lg font-bold text-white">Customers</h2>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {chatSessions.map((session) => (
+              {customers.map((customer) => (
                 <button
-                  key={session.id}
-                  onClick={() => setSelectedChat(session.id)}
+                  key={customer.id}
+                  onClick={() => setSelectedChat(customer.id)}
                   className={`w-full p-4 text-left transition-all border-b border-purple-500/10 ${
-                    selectedChat === session.id 
-                      ? "bg-purple-500/20" 
+                    selectedChat === customer.id
+                      ? "bg-purple-500/20"
                       : "hover:bg-purple-500/10"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">
-                          {session.customerName[0]}
-                        </span>
-                      </div>
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${
-                        session.status === "active" ? "bg-emerald-400" :
-                        session.status === "waiting" ? "bg-yellow-400" : "bg-gray-400"
-                      }`}></div>
-                    </div>
+                    <UserAvatar name={customer.full_name} email={customer.email} size="md" />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white font-medium truncate">{session.customerName}</span>
-                        {session.unread > 0 && (
-                          <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
-                            {session.unread}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-purple-400 text-sm truncate">{session.lastMessage}</p>
+                      <span className="text-white font-medium truncate block">{customer.full_name}</span>
+                      <p className="text-purple-400 text-sm truncate">{customer.email}</p>
                     </div>
                   </div>
                 </button>
@@ -135,53 +175,75 @@ export default function SupportChatPage() {
 
           {/* Chat Window */}
           <div className="lg:col-span-2 bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-purple-500/20 overflow-hidden flex flex-col">
-            {selectedSession ? (
+            {selectedCustomer ? (
               <>
                 {/* Chat Header */}
                 <div className="p-4 border-b border-purple-500/20 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
                       <span className="text-white font-bold text-sm">
-                        {selectedSession.customerName[0]}
+                        {selectedCustomer.full_name[0]}
                       </span>
                     </div>
                     <div>
-                      <div className="text-white font-medium">{selectedSession.customerName}</div>
-                      <div className="text-purple-400 text-sm">{selectedSession.customerEmail}</div>
+                      <div className="text-white font-medium">{selectedCustomer.full_name}</div>
+                      <div className="text-purple-400 text-sm">{selectedCustomer.email}</div>
                     </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    selectedSession.status === "active" 
+                    connected
                       ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : selectedSession.status === "waiting"
-                      ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
                       : "bg-gray-500/20 text-gray-400 border border-gray-500/30"
                   }`}>
-                    {selectedSession.status.charAt(0).toUpperCase() + selectedSession.status.slice(1)}
+                    {connected ? "Live" : "Connecting..."}
                   </span>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {chatMessages.map((msg) => (
+                  {messages.length === 0 && (
+                    <div className="text-center text-purple-400 py-10">
+                      No messages yet. Start the conversation!
+                    </div>
+                  )}
+                  {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.sender === "support" ? "justify-end" : "justify-start"}`}
+                      className={`flex ${msg.sender_role === "SUPPORT" ? "justify-end" : "justify-start"} gap-3`}
                     >
+                      {msg.sender_role === "CUSTOMER" && (
+                        <UserAvatar name={selectedCustomer.full_name} email={selectedCustomer.email} size="sm" />
+                      )}
                       <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                        msg.sender === "support"
+                        msg.sender_role === "SUPPORT"
                           ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
                           : "bg-slate-800 text-white border border-purple-500/20"
                       }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            msg.sender_role === "SUPPORT"
+                              ? "bg-emerald-500/30 text-emerald-300"
+                              : "bg-blue-500/30 text-blue-300"
+                          }`}>
+                            {msg.sender_role}
+                          </span>
+                          <span className="text-xs opacity-60">{msg.sender}</span>
+                        </div>
                         <p>{msg.message}</p>
                         <p className={`text-xs mt-1 ${
-                          msg.sender === "support" ? "text-purple-200" : "text-purple-400"
+                          msg.sender_role === "SUPPORT" ? "text-purple-200" : "text-purple-400"
                         }`}>
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
+                      {msg.sender_role === "SUPPORT" && (
+                        <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-xs">S</span>
+                        </div>
+                      )}
                     </div>
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Message Input */}
@@ -191,12 +253,13 @@ export default function SupportChatPage() {
                       type="text"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Type your message..."
-                      className="flex-1 bg-slate-800/70 border border-purple-500/30 rounded-xl px-4 py-3 text-white placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder={connected ? "Type your message..." : "Connecting..."}
+                      disabled={!connected}
+                      className="flex-1 bg-slate-800/70 border border-purple-500/30 rounded-xl px-4 py-3 text-white placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
                     />
                     <button
                       type="submit"
-                      disabled={!message.trim()}
+                      disabled={!message.trim() || !connected}
                       className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:scale-[1.02] transition-all disabled:opacity-50"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,26 +277,11 @@ export default function SupportChatPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">Select a Conversation</h3>
-                  <p className="text-purple-400">Choose a chat from the list to start helping</p>
+                  <h3 className="text-lg font-semibold text-white mb-2">Select a Customer</h3>
+                  <p className="text-purple-400">Choose a customer from the list to start chatting</p>
                 </div>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Note */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <h4 className="text-blue-300 font-semibold mb-1">Demo Mode</h4>
-              <p className="text-blue-300/80 text-sm">
-                This is a demonstration of the chat interface. In production, this would be connected to a real-time messaging service (WebSocket).
-              </p>
-            </div>
           </div>
         </div>
       </div>

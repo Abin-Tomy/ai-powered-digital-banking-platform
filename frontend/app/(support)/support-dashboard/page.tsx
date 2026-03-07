@@ -42,7 +42,8 @@ export default function SupportDashboardPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      const flags = fraudRes.data;
+      const rawData = fraudRes.data;
+      const flags = Array.isArray(rawData) ? rawData : rawData.results || [];
       setRecentFlags(flags.slice(0, 5));
 
       setStats({
