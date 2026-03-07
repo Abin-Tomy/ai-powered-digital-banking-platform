@@ -32,7 +32,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await api.post("/users/register/", {
+      await api.post("/auth/register/", {
         email,
         full_name: fullName,
         password,

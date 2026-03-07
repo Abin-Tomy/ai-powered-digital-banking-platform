@@ -43,7 +43,7 @@ class LoanApplicationView(APIView):
     
     def get(self, request):
         """Get user's loan applications"""
-        applications = LoanApplication.objects.filter(applicant=request.user)
+        applications = LoanApplication.objects.filter(applicant=request.user).select_related('loan_type')
         serializer = LoanApplicationSerializer(applications, many=True)
         return Response(serializer.data)
 
@@ -53,7 +53,7 @@ class AdminLoanApplicationsView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     
     def get(self, request):
-        applications = LoanApplication.objects.all().order_by('-applied_at')
+        applications = LoanApplication.objects.all().select_related('loan_type', 'applicant').order_by('-applied_at')
         serializer = LoanApplicationSerializer(applications, many=True)
         return Response(serializer.data)
 

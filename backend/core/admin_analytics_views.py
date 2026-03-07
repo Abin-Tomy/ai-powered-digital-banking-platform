@@ -92,7 +92,7 @@ class AdminAnalyticsView(APIView):
 
         # ── Top 5 accounts by balance ──
         top_accounts = []
-        for account in Account.objects.filter(status='ACTIVE')[:10]:
+        for account in Account.objects.filter(status='ACTIVE').select_related('owner')[:10]:
             balance = get_account_balance(account)
             top_accounts.append({
                 'account_number': account.account_number[-4:],

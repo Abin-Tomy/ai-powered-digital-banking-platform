@@ -34,8 +34,10 @@ export default function SupportUsersPage() {
       const response = await api.get("/admin/users/", {
         headers: { Authorization: `Bearer ${token}` }
       });
+      const data = response.data;
+      const allUsers = Array.isArray(data) ? data : data.results || [];
       // Filter to show only customers for support staff
-      setUsers(response.data.filter((u: User) => u.role === "CUSTOMER"));
+      setUsers(allUsers.filter((u: User) => u.role === "CUSTOMER"));
     } catch (err) {
       console.error("Failed to fetch users", err);
       setError("Unable to load user list. You may not have permission to view users.");

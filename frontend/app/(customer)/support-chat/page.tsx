@@ -33,7 +33,8 @@ export default function CustomerChatPage() {
       }
     }
 
-    const ws = new WebSocket(`ws://localhost:8000/ws/chat/${userId}/`);
+    const wsBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws");
+    const ws = new WebSocket(`${wsBase}/ws/chat/${userId}/`);
 
     ws.onopen = () => setConnected(true);
 

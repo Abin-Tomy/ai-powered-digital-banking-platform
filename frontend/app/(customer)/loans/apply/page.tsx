@@ -22,11 +22,11 @@ interface LoanType {
 interface ApplicationForm {
   loan_type: string;
   requested_amount: string;
-  requested_tenure_months: string;
+  tenure_months: string;
   purpose: string;
   annual_income: string;
   employment_type: string;
-  company_name: string;
+  employer_name: string;
   work_experience_years: string;
   monthly_income: string;
   existing_loans_emi: string;
@@ -52,11 +52,11 @@ function LoanApplicationInner() {
   const [formData, setFormData] = useState<ApplicationForm>({
     loan_type: '',
     requested_amount: '',
-    requested_tenure_months: '',
+    tenure_months: '',
     purpose: '',
     annual_income: '',
     employment_type: '',
-    company_name: '',
+    employer_name: '',
     work_experience_years: '',
     monthly_income: '',
     existing_loans_emi: '',
@@ -105,19 +105,19 @@ function LoanApplicationInner() {
     }
 
     // Calculate EMI when amount or tenure changes
-    if (field === 'requested_amount' || field === 'requested_tenure_months') {
+    if (field === 'requested_amount' || field === 'tenure_months') {
       setTimeout(calculateEMI, 100); // Small delay to ensure state is updated
     }
   };
 
   const calculateEMI = () => {
-    if (!selectedLoanType || !formData.requested_amount || !formData.requested_tenure_months) {
+    if (!selectedLoanType || !formData.requested_amount || !formData.tenure_months) {
       setEmiCalculation(null);
       return;
     }
 
     const principal = parseFloat(formData.requested_amount);
-    const months = parseInt(formData.requested_tenure_months);
+    const months = parseInt(formData.tenure_months);
     const annualRate = selectedLoanType.minimum_interest_rate;
     const monthlyRate = annualRate / 12 / 100;
 
@@ -135,10 +135,10 @@ function LoanApplicationInner() {
 
     if (!formData.loan_type) newErrors.loan_type = 'Please select a loan type';
     if (!formData.requested_amount) newErrors.requested_amount = 'Amount is required';
-    if (!formData.requested_tenure_months) newErrors.requested_tenure_months = 'Tenure is required';
+    if (!formData.tenure_months) newErrors.tenure_months = 'Tenure is required';
     if (!formData.annual_income) newErrors.annual_income = 'Annual income is required';
     if (!formData.employment_type) newErrors.employment_type = 'Employment type is required';
-    if (!formData.company_name) newErrors.company_name = 'Company name is required';
+    if (!formData.employer_name) newErrors.employer_name = 'Employer name is required';
 
     // Validate amount range
     if (selectedLoanType && formData.requested_amount) {
@@ -149,10 +149,10 @@ function LoanApplicationInner() {
     }
 
     // Validate tenure range
-    if (selectedLoanType && formData.requested_tenure_months) {
-      const tenure = parseInt(formData.requested_tenure_months);
+    if (selectedLoanType && formData.tenure_months) {
+      const tenure = parseInt(formData.tenure_months);
       if (tenure < selectedLoanType.minimum_tenure_months || tenure > selectedLoanType.maximum_tenure_months) {
-        newErrors.requested_tenure_months = `Tenure must be between ${selectedLoanType.minimum_tenure_months} and ${selectedLoanType.maximum_tenure_months} months`;
+        newErrors.tenure_months = `Tenure must be between ${selectedLoanType.minimum_tenure_months} and ${selectedLoanType.maximum_tenure_months} months`;
       }
     }
 
@@ -174,7 +174,7 @@ function LoanApplicationInner() {
       const payload = {
         ...formData,
         requested_amount: parseFloat(formData.requested_amount),
-        requested_tenure_months: parseInt(formData.requested_tenure_months),
+        tenure_months: parseInt(formData.tenure_months),
         annual_income: parseFloat(formData.annual_income),
         monthly_income: formData.monthly_income ? parseFloat(formData.monthly_income) : null,
         work_experience_years: formData.work_experience_years ? parseInt(formData.work_experience_years) : null,
@@ -308,14 +308,14 @@ function LoanApplicationInner() {
                   </label>
                   <input
                     type="number"
-                    value={formData.requested_tenure_months}
-                    onChange={(e) => handleInputChange('requested_tenure_months', e.target.value)}
+                    value={formData.tenure_months}
+                    onChange={(e) => handleInputChange('tenure_months', e.target.value)}
                     placeholder="Enter tenure in months"
                     className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg"
                     required
                   />
-                  {errors.requested_tenure_months && (
-                    <p className="text-red-400 text-sm mt-1">{errors.requested_tenure_months}</p>
+                  {errors.tenure_months && (
+                    <p className="text-red-400 text-sm mt-1">{errors.tenure_months}</p>
                   )}
                 </div>
               </div>
@@ -419,18 +419,18 @@ function LoanApplicationInner() {
                 </div>
                 <div>
                   <label className="block text-purple-200 text-sm font-semibold mb-3">
-                    Company Name *
+                    Employer Name *
                   </label>
                   <input
                     type="text"
-                    value={formData.company_name}
-                    onChange={(e) => handleInputChange('company_name', e.target.value)}
-                    placeholder="Enter company name"
+                    value={formData.employer_name}
+                    onChange={(e) => handleInputChange('employer_name', e.target.value)}
+                    placeholder="Enter employer name"
                     className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg"
                     required
                   />
-                  {errors.company_name && (
-                    <p className="text-red-400 text-sm mt-1">{errors.company_name}</p>
+                  {errors.employer_name && (
+                    <p className="text-red-400 text-sm mt-1">{errors.employer_name}</p>
                   )}
                 </div>
               </div>

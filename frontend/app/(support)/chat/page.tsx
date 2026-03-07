@@ -50,7 +50,8 @@ export default function SupportChatPage() {
     setMessages([]);
     setConnected(false);
 
-    const ws = new WebSocket(`ws://localhost:8000/ws/chat/${selectedChat}/`);
+    const wsBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws");
+    const ws = new WebSocket(`${wsBase}/ws/chat/${selectedChat}/`);
 
     ws.onopen = () => setConnected(true);
 
@@ -86,7 +87,8 @@ export default function SupportChatPage() {
       const usersRes = await api.get("/admin/users/", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const customerUsers = usersRes.data.filter(
+      const allUsers = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.results || [];
+      const customerUsers = allUsers.filter(
         (user: any) => user.role === "CUSTOMER"
       );
       setCustomers(customerUsers);

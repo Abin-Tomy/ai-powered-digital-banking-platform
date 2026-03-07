@@ -244,7 +244,7 @@ export default function CreditCardApplication() {
         purpose: formData.purpose
       };
 
-      await api.post('/credit-cards/applications/', applicationData);
+      await api.post('/credit-cards/applications/create/', applicationData);
       router.push('/credit-cards?tab=applications&success=true');
     } catch (error: any) {
       console.error('Application submission failed:', error);

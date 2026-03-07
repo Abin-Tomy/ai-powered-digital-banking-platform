@@ -166,7 +166,7 @@ class AccountTransactionsView(APIView):
         except Account.DoesNotExist:
             return Response(status=404)
 
-        queryset = Transaction.objects.filter(account=account)
+        queryset = Transaction.objects.filter(account=account).select_related('account')
 
         if search := request.query_params.get('search'):
             queryset = queryset.filter(

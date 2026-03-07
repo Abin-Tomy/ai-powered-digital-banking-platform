@@ -39,7 +39,8 @@ export default function FraudDetectionPage() {
     fetchFraudFlags();
 
     // Connect to fraud alert WebSocket
-    const ws = new WebSocket("ws://localhost:8000/ws/fraud-alerts/");
+    const wsBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws");
+    const ws = new WebSocket(`${wsBase}/ws/fraud-alerts/`);
 
     ws.onopen = () => setWsConnected(true);
 
@@ -77,7 +78,8 @@ export default function FraudDetectionPage() {
       const response = await api.get("/fraud/flags/", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFraudFlags(response.data);
+      const data = response.data;
+      setFraudFlags(Array.isArray(data) ? data : data.results || []);
     } catch (err) {
       console.error("Failed to fetch fraud flags", err);
       setError("Failed to load fraud flags");

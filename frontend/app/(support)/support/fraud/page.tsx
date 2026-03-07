@@ -34,7 +34,8 @@ export default function SupportFraudPage() {
       const response = await api.get("/fraud/flags/", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFraudFlags(response.data);
+      const data = response.data;
+      setFraudFlags(Array.isArray(data) ? data : data.results || []);
     } catch (err) {
       console.error("Failed to fetch fraud flags", err);
       setError("Failed to load fraud flags");

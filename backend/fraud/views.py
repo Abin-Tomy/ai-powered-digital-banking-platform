@@ -1,12 +1,19 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
 
 from .models import FraudFlag
 from .serializers import FraudFlagSerializer
 from users.models import AuditLog
 from users.permissions import IsAdmin
+
+
+class FraudFlagPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class FlaggedTransactionsView(APIView):
@@ -19,7 +26,16 @@ class FlaggedTransactionsView(APIView):
         if request.user.role not in ["ADMIN", "SUPPORT"]:
             return Response(status=403)
 
-        flags = FraudFlag.objects.all().order_by("-created_at")
+        flags = FraudFlag.objects.select_related(
+            'transaction', 'reviewed_by'
+        ).all().order_by("-created_at")
+
+        paginator = FraudFlagPagination()
+        page = paginator.paginate_queryset(flags, request)
+        if page is not None:
+            serializer = FraudFlagSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
         serializer = FraudFlagSerializer(flags, many=True)
         return Response(serializer.data)
 

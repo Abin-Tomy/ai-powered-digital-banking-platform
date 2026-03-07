@@ -55,7 +55,7 @@ class Customer360View(APIView):
         ]
 
         # Loan applications
-        loan_apps = LoanApplication.objects.filter(applicant=customer)
+        loan_apps = LoanApplication.objects.filter(applicant=customer).select_related('loan_type')
         loans_data = [
             {
                 'id': str(la.id),

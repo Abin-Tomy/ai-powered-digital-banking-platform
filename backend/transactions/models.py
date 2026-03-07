@@ -40,6 +40,8 @@ class Transaction(models.Model):
         indexes = [
             models.Index(fields=['account']),
             models.Index(fields=['reference']),
+            models.Index(fields=['account', '-created_at']),
+            models.Index(fields=['status']),
         ]
 
     def __str__(self):

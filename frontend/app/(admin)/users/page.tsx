@@ -43,7 +43,8 @@ export default function UsersPage() {
       const response = await api.get("/admin/users/", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setUsers(response.data);
+      const data = response.data;
+      setUsers(Array.isArray(data) ? data : data.results || []);
     } catch (err) {
       console.error("Failed to fetch users", err);
       setError("Failed to load users");
