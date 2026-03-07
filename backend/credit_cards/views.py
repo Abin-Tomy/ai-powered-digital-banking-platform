@@ -7,7 +7,6 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
 from django.db import models
-from decimal import Decimal
 from .models import CreditCardType, CreditCardApplication, CreditCard, CreditCardTransaction, CreditCardStatement
 from .serializers import (
     CreditCardTypeSerializer, CreditCardApplicationCreateSerializer, CreditCardApplicationSerializer,

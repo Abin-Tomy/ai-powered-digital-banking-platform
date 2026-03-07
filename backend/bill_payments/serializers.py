@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import BillerCategory, Biller, SavedBiller, Bill, BillPayment, RecurringBillPayment
 from django.contrib.auth import get_user_model
-from decimal import Decimal
 
 User = get_user_model()
 

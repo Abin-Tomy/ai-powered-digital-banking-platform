@@ -32,6 +32,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
 pip-wheel-metadata/
 .pytest_cache/
 
@@ -41,6 +42,7 @@ pip-wheel-metadata/
 node_modules/
 .next/
 out/
+build/
 .env.local
 npm-debug.log*
 yarn-debug.log*
@@ -74,6 +76,7 @@ models/
 # Logs
 # =========================
 *.log
+logs/
 
 # =========================
 # OS files

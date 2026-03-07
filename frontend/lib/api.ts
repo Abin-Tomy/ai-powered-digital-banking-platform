@@ -10,7 +10,7 @@ function getCookie(name: string) {
 }
 
 const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000") + "/api",
   withCredentials: true, // 🔑 VERY IMPORTANT (sends cookies)
 });
 
@@ -45,7 +45,7 @@ api.interceptors.response.use(
         
         // Try to refresh token
         const response = await axios.post(
-          "http://localhost:8000/api/auth/token/refresh/",
+          (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000") + "/api/auth/token/refresh/",
           { refresh: refreshToken },
           { withCredentials: true }
         );

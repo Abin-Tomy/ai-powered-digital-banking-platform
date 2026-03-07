@@ -5,7 +5,11 @@ from .models import LoanType, LoanApplication, Loan, LoanPayment
 class LoanTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoanType
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'description', 'interest_rate',
+            'min_amount', 'max_amount', 'min_tenure_months',
+            'max_tenure_months', 'processing_fee', 'is_active',
+        ]
 
 
 class LoanApplicationSerializer(serializers.ModelSerializer):
@@ -41,5 +45,9 @@ class LoanSerializer(serializers.ModelSerializer):
 class LoanPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = LoanPayment
-        fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = [
+            'id', 'loan', 'emi_number', 'due_date',
+            'principal_amount', 'interest_amount', 'total_amount',
+            'paid_amount', 'payment_date', 'status',
+        ]
+        read_only_fields = ['id']

@@ -1,12 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
 from django.utils import timezone
 
 from .models import FraudFlag
 from .serializers import FraudFlagSerializer
 from users.models import AuditLog
+from users.permissions import IsAdmin
 
 
 class FlaggedTransactionsView(APIView):
@@ -28,12 +28,9 @@ class ReviewFraudView(APIView):
     """
     Admin confirms or clears fraud
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request, fraud_id):
-        if request.user.role != "ADMIN":
-            return Response(status=403)
-
         try:
             flag = FraudFlag.objects.get(id=fraud_id)
         except FraudFlag.DoesNotExist:

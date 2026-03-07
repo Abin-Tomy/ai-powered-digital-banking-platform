@@ -7,7 +7,7 @@ ML micro-service for fraud scoring.
 import requests
 from datetime import timedelta
 
-from django.db.models import Avg, Count
+from django.db.models import Avg
 from django.utils import timezone
 
 from transactions.models import Transaction

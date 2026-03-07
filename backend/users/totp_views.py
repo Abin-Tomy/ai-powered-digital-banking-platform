@@ -1,4 +1,3 @@
-import uuid
 import pyotp
 import qrcode
 import base64

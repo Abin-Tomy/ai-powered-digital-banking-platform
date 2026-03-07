@@ -4,13 +4,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
 from .models import User, Notification
-from .permissions import IsSupport, IsAdmin
 from accounts.models import Account
 from transactions.models import Transaction
 from transactions.services import get_account_balance
 from loans.models import LoanApplication, Loan
 from fraud.models import FraudFlag
-from credit_cards.models import CreditCard, CreditCardApplication
+from credit_cards.models import CreditCard
 
 
 class Customer360View(APIView):

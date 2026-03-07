@@ -3,7 +3,7 @@ from decimal import Decimal
 from collections import defaultdict
 
 from django.db import transaction as db_transaction
-from django.db.models import Q, Sum, Count
+from django.db.models import Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
@@ -21,6 +21,7 @@ from fraud.ai_service import predict_fraud
 from fraud.models import FraudFlag
 from users.notification_views import push_notification
 from users.models import AuditLog
+from users.permissions import IsAdmin
 
 from django.utils.dateparse import parse_date
 
@@ -61,10 +62,14 @@ class TransferView(APIView):
             )
 
         try:
-            from_account = Account.objects.get(id=from_account_id)
+            from_account = Account.objects.get(id=from_account_id, owner=request.user)
+        except Account.DoesNotExist:
+            return Response({"detail": "Source account not found"}, status=404)
+
+        try:
             to_account = Account.objects.get(account_number=to_account_number)
         except Account.DoesNotExist:
-            return Response({"detail": "Account not found"}, status=404)
+            return Response({"detail": "Destination account not found"}, status=404)
         
         # FIX 3: Prevent self-transfer to same account
         if from_account.id == to_account.id:
@@ -85,9 +90,6 @@ class TransferView(APIView):
                 {"detail": "Destination account is not active"},
                 status=status.HTTP_400_BAD_REQUEST
         )
-
-        if from_account.owner != request.user:
-            return Response(status=403)
 
         balance = get_account_balance(from_account)
         if balance < amount:
@@ -160,12 +162,9 @@ class AccountTransactionsView(APIView):
 
     def get(self, request, account_id):
         try:
-            account = Account.objects.get(id=account_id)
+            account = Account.objects.get(id=account_id, owner=request.user)
         except Account.DoesNotExist:
             return Response(status=404)
-
-        if account.owner != request.user:
-            return Response(status=403)
 
         queryset = Transaction.objects.filter(account=account)
 
@@ -206,12 +205,9 @@ class AccountBalanceView(APIView):
 
     def get(self, request, account_id):
         try:
-            account = Account.objects.get(id=account_id)
+            account = Account.objects.get(id=account_id, owner=request.user)
         except Account.DoesNotExist:
             return Response(status=404)
-
-        if account.owner != request.user:
-            return Response(status=403)
 
         balance = get_account_balance(account)
         return Response({"balance": balance})
@@ -220,15 +216,9 @@ class DepositView(APIView):
     """
     Admin deposits money into an account (funding)
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request):
-        if request.user.role != "ADMIN":
-            return Response(
-                {"detail": "Only admin can fund accounts"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
         account_id = request.data.get("account_id")
         amount = Decimal(request.data.get("amount", 0))
 
@@ -278,12 +268,9 @@ class AccountStatementView(APIView):
 
     def get(self, request, account_id):
         try:
-            account = Account.objects.get(id=account_id)
+            account = Account.objects.get(id=account_id, owner=request.user)
         except Account.DoesNotExist:
             return Response(status=404)
-
-        if account.owner != request.user:
-            return Response(status=403)
 
         start_date = request.query_params.get("from")
         end_date = request.query_params.get("to")
@@ -463,7 +450,7 @@ class StatementPDFView(APIView):
             topMargin=inch * 0.75, bottomMargin=inch * 0.75,
         )
 
-        styles = getSampleStyleSheet()
+        getSampleStyleSheet()
         story = []
 
         story.append(Paragraph(

@@ -6,21 +6,16 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Account
 from .serializers import AccountSerializer
 from .utils import generate_account_number
+from users.permissions import IsAdmin
 
 
 class CreateAccountView(APIView):
     """
     Admin/System creates accounts
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request):
-        if request.user.role != "ADMIN":
-            return Response(
-                {"detail": "Not allowed"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
         serializer = AccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -71,23 +66,17 @@ class AccountDetailView(APIView):
 
     def get(self, request, account_id):
         try:
-            account = Account.objects.get(id=account_id)
+            account = Account.objects.get(id=account_id, owner=request.user)
         except Account.DoesNotExist:
             return Response(status=404)
-
-        if account.owner != request.user:
-            return Response(status=403)
 
         serializer = AccountSerializer(account)
         return Response(serializer.data)
 
 class AccountStatusUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def post(self, request, account_id):
-        if request.user.role != "ADMIN":
-            return Response(status=403)
-
         new_status = request.data.get("status")
         if new_status not in ["ACTIVE", "FROZEN", "CLOSED"]:
             return Response(
@@ -106,11 +95,8 @@ class AccountStatusUpdateView(APIView):
         return Response(AccountSerializer(account).data)
 
 class AllAccountsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
-        if request.user.role != "ADMIN":
-            return Response(status=403)
-
         accounts = Account.objects.all()
         return Response(AccountSerializer(accounts, many=True).data)

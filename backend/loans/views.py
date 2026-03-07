@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 
@@ -14,6 +14,7 @@ from .serializers import (
 )
 from users.notification_views import push_notification
 from users.models import AuditLog
+from users.permissions import IsAdmin
 
 
 class LoanTypesView(APIView):
@@ -49,12 +50,9 @@ class LoanApplicationView(APIView):
 
 class AdminLoanApplicationsView(APIView):
     """Admin can view and process loan applications"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
     
     def get(self, request):
-        if request.user.role not in ['ADMIN']:
-            return Response({'detail': 'Permission denied'}, status=403)
-        
         applications = LoanApplication.objects.all().order_by('-applied_at')
         serializer = LoanApplicationSerializer(applications, many=True)
         return Response(serializer.data)
@@ -62,12 +60,9 @@ class AdminLoanApplicationsView(APIView):
 
 class LoanApplicationApprovalView(APIView):
     """Admin approves/rejects loan applications"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
     
     def post(self, request, application_id):
-        if request.user.role not in ['ADMIN']:
-            return Response({'detail': 'Permission denied'}, status=403)
-        
         try:
             application = LoanApplication.objects.get(id=application_id)
         except LoanApplication.DoesNotExist:
@@ -216,12 +211,9 @@ class LoanDetailsView(APIView):
 
 class AdminLoansView(APIView):
     """Admin views all loans"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
     
     def get(self, request):
-        if request.user.role not in ['ADMIN']:
-            return Response({'detail': 'Permission denied'}, status=403)
-        
         loans = Loan.objects.all().order_by('-disbursed_at')
         serializer = LoanSerializer(loans, many=True)
         return Response(serializer.data)

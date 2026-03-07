@@ -4,10 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db import transaction
-from django.db.models import Q, Count
 from decimal import Decimal
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from .models import BillerCategory, Biller, SavedBiller, Bill, BillPayment, RecurringBillPayment
 from .serializers import (
     BillerCategorySerializer, BillerSerializer, SavedBillerCreateSerializer,
@@ -130,7 +128,7 @@ def fetch_bills(request):
     serializer = BillFetchSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         saved_biller_id = serializer.validated_data['saved_biller_id']
-        fetch_period = serializer.validated_data['fetch_period_months']
+        serializer.validated_data['fetch_period_months']
         
         saved_biller = get_object_or_404(SavedBiller, id=saved_biller_id, user=request.user)
         
@@ -201,9 +199,9 @@ def payment_summary(request):
             {'error': 'Saved biller not found'},
             status=status.HTTP_404_NOT_FOUND
         )
-    except Exception as e:
+    except Exception:
         return Response(
-            {'error': str(e)},
+            {'error': 'An unexpected error occurred.'},
             status=status.HTTP_400_BAD_REQUEST
         )
 

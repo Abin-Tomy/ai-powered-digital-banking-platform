@@ -435,11 +435,11 @@ export default function StatementsPage() {
                     )}
                   </button>
                   <button onClick={() => {
-                    const token = localStorage.getItem("access_token");
-                    const url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/transactions/${selectedAccountId}/statement/pdf/?date_from=${fromDate}&date_to=${toDate}`;
-                    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-                      .then(res => { if (!res.ok) throw new Error("Failed"); return res.blob(); })
-                      .then(blob => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `statement_${fromDate}_${toDate}.pdf`; a.click(); URL.revokeObjectURL(a.href); })
+                    api.get(`/transactions/${selectedAccountId}/statement/pdf/`, {
+                      params: { date_from: fromDate, date_to: toDate },
+                      responseType: 'blob',
+                    })
+                      .then(res => { const blob = new Blob([res.data], { type: 'application/pdf' }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `statement_${fromDate}_${toDate}.pdf`; a.click(); URL.revokeObjectURL(a.href); })
                       .catch(() => setError("Failed to download PDF"));
                   }} disabled={!fromDate || !toDate || !selectedAccountId}
                     className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold py-3 px-6 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap">
