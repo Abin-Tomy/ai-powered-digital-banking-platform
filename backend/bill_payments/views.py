@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from decimal import Decimal
 from datetime import date, timedelta
+from drf_spectacular.utils import extend_schema
 from .models import BillerCategory, Biller, SavedBiller, Bill, BillPayment, RecurringBillPayment
 from .serializers import (
     BillerCategorySerializer, BillerSerializer, SavedBillerCreateSerializer,
@@ -17,6 +18,7 @@ from .serializers import (
 from users.permissions import IsCustomer, IsAdmin
 
 
+@extend_schema(tags=['bill-payments'])
 class BillerCategoryListView(generics.ListAPIView):
     """List all active biller categories"""
     serializer_class = BillerCategorySerializer
@@ -26,6 +28,7 @@ class BillerCategoryListView(generics.ListAPIView):
         return BillerCategory.objects.filter(is_active=True).prefetch_related('billers')
 
 
+@extend_schema(tags=['bill-payments'])
 class BillerListView(generics.ListAPIView):
     """List all active billers, optionally filtered by category"""
     serializer_class = BillerSerializer
@@ -39,6 +42,7 @@ class BillerListView(generics.ListAPIView):
         return queryset.order_by('category__sort_order', 'sort_order', 'name')
 
 
+@extend_schema(tags=['bill-payments'])
 class BillerDetailView(generics.RetrieveAPIView):
     """Get detailed information about a specific biller"""
     serializer_class = BillerSerializer
@@ -46,6 +50,7 @@ class BillerDetailView(generics.RetrieveAPIView):
     queryset = Biller.objects.filter(is_active=True).select_related('category')
 
 
+@extend_schema(tags=['bill-payments'])
 class SavedBillerListView(generics.ListCreateAPIView):
     """List user's saved billers and create new ones"""
     permission_classes = [IsAuthenticated, IsCustomer]
@@ -64,6 +69,7 @@ class SavedBillerListView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
+@extend_schema(tags=['bill-payments'])
 class SavedBillerDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a saved biller"""
     permission_classes = [IsAuthenticated, IsCustomer]
@@ -79,6 +85,7 @@ class SavedBillerDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+@extend_schema(tags=['bill-payments'])
 class BillListView(generics.ListAPIView):
     """List bills for user's saved billers"""
     serializer_class = BillSerializer
@@ -110,6 +117,7 @@ class BillListView(generics.ListAPIView):
         return queryset.order_by('due_date')
 
 
+@extend_schema(tags=['bill-payments'])
 class BillDetailView(generics.RetrieveAPIView):
     """Get detailed information about a specific bill"""
     serializer_class = BillSerializer
@@ -121,6 +129,7 @@ class BillDetailView(generics.RetrieveAPIView):
         ).select_related('saved_biller', 'saved_biller__biller')
 
 
+@extend_schema(tags=['bill-payments'], summary='Fetch latest bills for a saved biller')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def fetch_bills(request):
@@ -161,6 +170,7 @@ def fetch_bills(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(tags=['bill-payments'], summary='Get payment summary before processing')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def payment_summary(request):
@@ -206,6 +216,7 @@ def payment_summary(request):
         )
 
 
+@extend_schema(tags=['bill-payments'])
 class BillPaymentListView(generics.ListCreateAPIView):
     """List user's bill payments and create new ones"""
     permission_classes = [IsAuthenticated, IsCustomer]
@@ -262,6 +273,7 @@ class BillPaymentListView(generics.ListCreateAPIView):
             payment.bill.save()
 
 
+@extend_schema(tags=['bill-payments'])
 class BillPaymentDetailView(generics.RetrieveAPIView):
     """Get detailed information about a specific bill payment"""
     serializer_class = BillPaymentSerializer
@@ -273,6 +285,7 @@ class BillPaymentDetailView(generics.RetrieveAPIView):
         )
 
 
+@extend_schema(tags=['bill-payments'])
 class RecurringBillPaymentListView(generics.ListCreateAPIView):
     """List user's recurring bill payments and create new ones"""
     permission_classes = [IsAuthenticated, IsCustomer]
@@ -294,6 +307,7 @@ class RecurringBillPaymentListView(generics.ListCreateAPIView):
         )
 
 
+@extend_schema(tags=['bill-payments'])
 class RecurringBillPaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a recurring bill payment"""
     serializer_class = RecurringBillPaymentSerializer
@@ -305,6 +319,7 @@ class RecurringBillPaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+@extend_schema(tags=['bill-payments'], summary='Pause a recurring bill payment')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def pause_recurring_payment(request, pk):
@@ -325,6 +340,7 @@ def pause_recurring_payment(request, pk):
     }, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(tags=['bill-payments'], summary='Resume a paused recurring bill payment')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def resume_recurring_payment(request, pk):
@@ -346,6 +362,7 @@ def resume_recurring_payment(request, pk):
 
 
 # Admin Views
+@extend_schema(tags=['admin'])
 class AdminBillPaymentListView(generics.ListAPIView):
     """Admin view to list all bill payments"""
     serializer_class = BillPaymentSerializer
@@ -357,6 +374,7 @@ class AdminBillPaymentListView(generics.ListAPIView):
         ).order_by('-initiated_at')
 
 
+@extend_schema(tags=['admin'])
 class AdminRecurringPaymentListView(generics.ListAPIView):
     """Admin view to list all recurring payments"""
     serializer_class = RecurringBillPaymentSerializer
@@ -368,6 +386,7 @@ class AdminRecurringPaymentListView(generics.ListAPIView):
         ).order_by('-created_at')
 
 
+@extend_schema(tags=['bill-payments'], summary='Dashboard data for bill payments')
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def bill_payment_dashboard(request):

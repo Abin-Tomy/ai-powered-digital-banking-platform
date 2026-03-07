@@ -7,6 +7,8 @@ from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 
+from drf_spectacular.utils import extend_schema
+
 from .models import LoanType, LoanApplication, Loan, LoanPayment
 from .serializers import (
     LoanTypeSerializer, LoanApplicationSerializer,
@@ -17,6 +19,7 @@ from users.models import AuditLog
 from users.permissions import IsAdmin
 
 
+@extend_schema(tags=['loans'])
 class LoanTypesView(APIView):
     """Public view for available loan types"""
     permission_classes = []
@@ -27,6 +30,7 @@ class LoanTypesView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['loans'])
 class LoanApplicationView(APIView):
     """Customer can apply for loans"""
     permission_classes = [IsAuthenticated]
@@ -48,6 +52,7 @@ class LoanApplicationView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['loans'])
 class AdminLoanApplicationsView(APIView):
     """Admin can view and process loan applications"""
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -58,6 +63,7 @@ class AdminLoanApplicationsView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['loans'])
 class LoanApplicationApprovalView(APIView):
     """Admin approves/rejects loan applications"""
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -176,6 +182,7 @@ class LoanApplicationApprovalView(APIView):
             current_date += relativedelta(months=1)
 
 
+@extend_schema(tags=['loans'])
 class CustomerLoansView(APIView):
     """Customer views their loans"""
     permission_classes = [IsAuthenticated]
@@ -186,6 +193,7 @@ class CustomerLoansView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['loans'])
 class LoanDetailsView(APIView):
     """Loan details with payment schedule"""
     permission_classes = [IsAuthenticated]
@@ -209,6 +217,7 @@ class LoanDetailsView(APIView):
         })
 
 
+@extend_schema(tags=['loans'])
 class AdminLoansView(APIView):
     """Admin views all loans"""
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -219,6 +228,7 @@ class AdminLoansView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['loans'])
 class EMICalculatorView(APIView):
     """Public EMI calculator — no auth needed"""
     permission_classes = []

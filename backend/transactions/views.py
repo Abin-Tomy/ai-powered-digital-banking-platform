@@ -12,6 +12,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 
+from drf_spectacular.utils import extend_schema
+
 from accounts.models import Account
 from .models import Transaction, IdempotencyKey
 from .serializers import TransactionSerializer
@@ -27,9 +29,11 @@ from django.utils.dateparse import parse_date
 
 
 
+@extend_schema(tags=['transactions'])
 class TransferView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(summary='Transfer funds between accounts', responses={201: TransactionSerializer})
     def post(self, request):
 
         if request.user.is_locked or not request.user.is_active:
@@ -157,6 +161,7 @@ class TransactionPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema(tags=['transactions'])
 class AccountTransactionsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -200,6 +205,7 @@ class AccountTransactionsView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['transactions'])
 class AccountBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -212,6 +218,7 @@ class AccountBalanceView(APIView):
         balance = get_account_balance(account)
         return Response({"balance": balance})
     
+@extend_schema(tags=['transactions'])
 class DepositView(APIView):
     """
     Admin deposits money into an account (funding)
@@ -263,6 +270,7 @@ class DepositView(APIView):
         )
 
 
+@extend_schema(tags=['transactions'])
 class AccountStatementView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -341,9 +349,11 @@ def _categorize_amount(amount):
         return "Large Transfers"
 
 
+@extend_schema(tags=['analytics'])
 class AnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(summary='Get spending analytics for the authenticated user')
     def get(self, request):
         user = request.user
         accounts = Account.objects.filter(owner=user)
@@ -419,6 +429,7 @@ class AnalyticsView(APIView):
         })
 
 
+@extend_schema(tags=['transactions'])
 class StatementPDFView(APIView):
     permission_classes = [IsAuthenticated]
 

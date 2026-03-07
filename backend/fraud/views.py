@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
 
+from drf_spectacular.utils import extend_schema
+
 from .models import FraudFlag
 from .serializers import FraudFlagSerializer
 from users.models import AuditLog
@@ -16,6 +18,7 @@ class FraudFlagPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema(tags=['fraud'])
 class FlaggedTransactionsView(APIView):
     """
     Admin / Support: view all suspicious transactions
@@ -40,6 +43,7 @@ class FlaggedTransactionsView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(tags=['fraud'])
 class ReviewFraudView(APIView):
     """
     Admin confirms or clears fraud

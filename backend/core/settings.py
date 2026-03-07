@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'bill_payments',
     'support',
     'corsheaders',
+    'drf_spectacular',
 ]
 
 ASGI_APPLICATION = 'core.asgi.application'
@@ -179,6 +180,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'EXCEPTION_HANDLER': 'core.exception_handlers.custom_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {
@@ -233,6 +235,41 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "onboarding@resend.dev")
 
 # ML Fraud Service
 ML_SERVICE_URL = os.getenv('ML_SERVICE_URL', 'http://localhost:9000')
+
+# API Documentation (drf-spectacular)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Digital Bank API',
+    'DESCRIPTION': '''
+AI-Powered Digital Banking Platform API.
+
+## Authentication
+Use JWT Bearer tokens. Obtain tokens via POST /api/auth/login/
+
+Include in headers:
+`Authorization: Bearer <access_token>`
+
+## Roles
+- **CUSTOMER**: Access to own banking features
+- **SUPPORT**: Customer lookup + fraud review
+- **ADMIN**: Full system access
+    ''',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'auth', 'description': 'Authentication & JWT'},
+        {'name': 'accounts', 'description': 'Bank account management'},
+        {'name': 'transactions', 'description': 'Transfers & statements'},
+        {'name': 'fraud', 'description': 'Fraud detection & review'},
+        {'name': 'loans', 'description': 'Loan applications & EMI'},
+        {'name': 'credit-cards', 'description': 'Credit card management'},
+        {'name': 'bill-payments', 'description': 'Bill payments & autopay'},
+        {'name': 'notifications', 'description': 'In-app notifications'},
+        {'name': 'analytics', 'description': 'Spending & admin analytics'},
+        {'name': '2fa', 'description': 'Two-factor authentication'},
+        {'name': 'admin', 'description': 'Admin-only endpoints'},
+    ]
+}
 
 # Session security
 SESSION_COOKIE_AGE = 3600  # 1 hour

@@ -7,6 +7,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
+from drf_spectacular.utils import extend_schema
+
 from users.models import User
 from users.permissions import IsAdmin
 from accounts.models import Account
@@ -16,6 +18,7 @@ from loans.models import LoanApplication
 from fraud.models import FraudFlag
 
 
+@extend_schema(tags=['admin'])
 class AdminAnalyticsView(APIView):
     """Comprehensive analytics endpoint for the admin dashboard."""
     permission_classes = [IsAuthenticated, IsAdmin]

@@ -10,9 +10,12 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from drf_spectacular.utils import extend_schema
+
 from .models import User, AuditLog
 
 
+@extend_schema(tags=['2fa'])
 class TOTPSetupView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -38,6 +41,7 @@ class TOTPSetupView(APIView):
         })
 
 
+@extend_schema(tags=['2fa'])
 class TOTPVerifyView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -57,6 +61,7 @@ class TOTPVerifyView(APIView):
         return Response({"detail": "Invalid code. Try again."}, status=400)
 
 
+@extend_schema(tags=['2fa'])
 class TOTPDisableView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -77,6 +82,7 @@ class TOTPDisableView(APIView):
         return Response({"detail": "Invalid code."}, status=400)
 
 
+@extend_schema(tags=['2fa'])
 class TOTPAuthenticateView(APIView):
     permission_classes = [AllowAny]
 

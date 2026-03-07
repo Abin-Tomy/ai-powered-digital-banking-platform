@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from drf_spectacular.utils import extend_schema
+
 from accounts.models import Account
 from transactions.models import Transaction
 from loans.models import Loan, LoanPayment
@@ -24,6 +26,7 @@ def _get_rating(score):
     return "Poor", "#ef4444"
 
 
+@extend_schema(tags=['accounts'])
 class CreditScoreView(APIView):
     permission_classes = [IsAuthenticated]
 

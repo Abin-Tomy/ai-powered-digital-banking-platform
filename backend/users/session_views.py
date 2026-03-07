@@ -4,9 +4,12 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
+from drf_spectacular.utils import extend_schema
+
 from .models import UserSession
 
 
+@extend_schema(tags=['auth'])
 class SessionListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -33,6 +36,7 @@ class SessionListView(APIView):
         return Response({"revoked": revoked})
 
 
+@extend_schema(tags=['auth'])
 class SessionRevokeView(APIView):
     permission_classes = [IsAuthenticated]
 

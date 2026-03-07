@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
 from django.db import models
+from drf_spectacular.utils import extend_schema
 from .models import CreditCardType, CreditCardApplication, CreditCard, CreditCardTransaction, CreditCardStatement
 from .serializers import (
     CreditCardTypeSerializer, CreditCardApplicationCreateSerializer, CreditCardApplicationSerializer,
@@ -20,6 +21,7 @@ from users.notification_views import push_notification
 from users.models import AuditLog
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardTypeListView(generics.ListAPIView):
     """Get all active credit card types"""
     serializer_class = CreditCardTypeSerializer
@@ -29,6 +31,7 @@ class CreditCardTypeListView(generics.ListAPIView):
         return CreditCardType.objects.filter(is_active=True)
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardApplicationCreateView(generics.CreateAPIView):
     """Create a new credit card application"""
     serializer_class = CreditCardApplicationCreateSerializer
@@ -51,6 +54,7 @@ class CreditCardApplicationCreateView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardApplicationListView(generics.ListAPIView):
     """List credit card applications"""
     serializer_class = CreditCardApplicationSerializer
@@ -62,6 +66,7 @@ class CreditCardApplicationListView(generics.ListAPIView):
         return CreditCardApplication.objects.filter(user=self.request.user)
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardApplicationDetailView(generics.RetrieveUpdateAPIView):
     """Get or update credit card application"""
     serializer_class = CreditCardApplicationSerializer
@@ -129,6 +134,7 @@ class CreditCardApplicationDetailView(generics.RetrieveUpdateAPIView):
         return response
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardListView(generics.ListAPIView):
     """List user's credit cards"""
     serializer_class = CreditCardSerializer
@@ -138,6 +144,7 @@ class CreditCardListView(generics.ListAPIView):
         return CreditCard.objects.filter(user=self.request.user)
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardDetailView(generics.RetrieveUpdateAPIView):
     """Get or update credit card details"""
     permission_classes = [IsAuthenticated, IsCustomer]
@@ -150,6 +157,7 @@ class CreditCardDetailView(generics.RetrieveUpdateAPIView):
         return CreditCardSerializer
 
 
+@extend_schema(tags=['credit-cards'], summary='Make a credit card payment')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def credit_card_payment(request, card_id):
@@ -199,6 +207,7 @@ def credit_card_payment(request, card_id):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardTransactionListView(generics.ListCreateAPIView):
     """List credit card transactions or create new transaction"""
     serializer_class = CreditCardTransactionSerializer
@@ -221,6 +230,7 @@ class CreditCardTransactionListView(generics.ListCreateAPIView):
         return CreditCardTransactionSerializer
 
 
+@extend_schema(tags=['credit-cards'])
 class CreditCardStatementListView(generics.ListAPIView):
     """List credit card statements"""
     serializer_class = CreditCardStatementSerializer
@@ -236,6 +246,7 @@ class CreditCardStatementListView(generics.ListAPIView):
         return CreditCardStatement.objects.filter(credit_card__user=self.request.user)
 
 
+@extend_schema(tags=['credit-cards'], summary='Block a credit card')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def block_credit_card(request, card_id):
@@ -257,6 +268,7 @@ def block_credit_card(request, card_id):
     }, status=status.HTTP_200_OK)
 
 
+@extend_schema(tags=['credit-cards'], summary='Unblock a credit card')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def unblock_credit_card(request, card_id):
@@ -275,6 +287,7 @@ def unblock_credit_card(request, card_id):
     }, status=status.HTTP_200_OK)
 
 
+@extend_schema(tags=['credit-cards'], summary='Set or change credit card PIN')
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def set_credit_card_pin(request, card_id):
@@ -298,6 +311,7 @@ def set_credit_card_pin(request, card_id):
     }, status=status.HTTP_200_OK)
 
 
+@extend_schema(tags=['credit-cards'], summary='Get credit card reward points')
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsCustomer])
 def credit_card_rewards(request, card_id):
@@ -330,6 +344,7 @@ def credit_card_rewards(request, card_id):
 
 
 # Admin Views
+@extend_schema(tags=['admin'])
 class AdminCreditCardListView(generics.ListAPIView):
     """Admin view to list all credit cards"""
     queryset = CreditCard.objects.all()
@@ -337,6 +352,7 @@ class AdminCreditCardListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
 
+@extend_schema(tags=['admin'])
 class AdminCreditCardApplicationListView(generics.ListAPIView):
     """Admin view to list all credit card applications"""
     queryset = CreditCardApplication.objects.all()

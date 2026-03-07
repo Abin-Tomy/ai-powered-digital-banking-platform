@@ -3,10 +3,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
+from drf_spectacular.utils import extend_schema
+
 from .models import Notification
 from .serializers import NotificationSerializer
 
 
+@extend_schema(tags=['notifications'])
 class NotificationListView(APIView):
     """List notifications for the authenticated user."""
     permission_classes = [IsAuthenticated]
@@ -21,6 +24,7 @@ class NotificationListView(APIView):
         })
 
 
+@extend_schema(tags=['notifications'])
 class MarkNotificationReadView(APIView):
     """Mark a single notification as read."""
     permission_classes = [IsAuthenticated]
@@ -35,6 +39,7 @@ class MarkNotificationReadView(APIView):
         return Response({'detail': 'Marked as read'})
 
 
+@extend_schema(tags=['notifications'])
 class MarkAllNotificationsReadView(APIView):
     """Mark all notifications as read for the authenticated user."""
     permission_classes = [IsAuthenticated]

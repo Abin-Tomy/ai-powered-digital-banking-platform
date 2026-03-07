@@ -9,6 +9,8 @@ from django.core.cache import cache
 from django.http import JsonResponse
 import uuid
 
+from drf_spectacular.utils import extend_schema
+
 from .models import User, VerificationToken, AuditLog, UserSession
 from .serializers import RegisterSerializer, UserSerializer
 from .email_service import send_verification_email, send_password_reset_email
@@ -27,10 +29,12 @@ def ratelimit_handler(request, exception):
     raise exception
 
 
+@extend_schema(tags=['auth'])
 @method_decorator(ratelimit(key='ip', rate='3/m', method='POST', block=True), name='post')
 class RegisterView(APIView):
     permission_classes = []
 
+    @extend_schema(summary='Register a new user', request=RegisterSerializer, responses={201: UserSerializer})
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -51,10 +55,12 @@ class RegisterView(APIView):
         )
 
 
+@extend_schema(tags=['auth'])
 @method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True), name='post')
 class LoginView(APIView):
     permission_classes = []
 
+    @extend_schema(summary='Login with email and password')
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
@@ -127,7 +133,9 @@ class LoginView(APIView):
             pass
 
 
+@extend_schema(tags=['auth'])
 class LogoutView(APIView):
+    @extend_schema(summary='Logout and blacklist refresh token')
     def post(self, request):
         refresh_token = request.data.get("refresh")
         token = RefreshToken(refresh_token)
@@ -136,7 +144,9 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(tags=['auth'])
 class CurrentUserView(APIView):
+    @extend_schema(summary='Get current authenticated user', responses={200: UserSerializer})
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
@@ -145,6 +155,7 @@ class CurrentUserView(APIView):
 # ── Email Verification & Password Reset ─────────────────────────
 
 
+@extend_schema(tags=['auth'])
 class SendVerificationEmailView(APIView):
     """POST /api/auth/send-verification/ — resend verification email."""
     permission_classes = [AllowAny]
@@ -167,6 +178,7 @@ class SendVerificationEmailView(APIView):
         return Response({"detail": "Verification email sent."})
 
 
+@extend_schema(tags=['auth'])
 class VerifyEmailView(APIView):
     """POST /api/auth/verify-email/ — verify email with token."""
     permission_classes = [AllowAny]
@@ -193,6 +205,7 @@ class VerifyEmailView(APIView):
 
 
 @method_decorator(ratelimit(key='ip', rate='3/h', method='POST', block=True), name='post')
+@extend_schema(tags=['auth'])
 class ForgotPasswordView(APIView):
     """POST /api/auth/forgot-password/ — request password reset email."""
     permission_classes = [AllowAny]
@@ -212,6 +225,7 @@ class ForgotPasswordView(APIView):
         return Response({"detail": "If this email exists, a reset link has been sent."})
 
 
+@extend_schema(tags=['auth'])
 class ResetPasswordView(APIView):
     """
     GET  /api/auth/reset-password/?token=<uuid>  — validate token

@@ -1,6 +1,8 @@
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 
+from drf_spectacular.utils import extend_schema
+
 from .models import User
 from .serializers import UserSerializer
 from .permissions import IsAdmin
@@ -12,6 +14,7 @@ class UserPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema(tags=['admin'])
 class UserListView(ListAPIView):
     """
     Admin-only: list all users

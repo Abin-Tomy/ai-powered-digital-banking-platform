@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
+from drf_spectacular.utils import extend_schema
+
 from .models import User, Notification
 from accounts.models import Account
 from transactions.models import Transaction
@@ -12,6 +14,7 @@ from fraud.models import FraudFlag
 from credit_cards.models import CreditCard
 
 
+@extend_schema(tags=['admin'])
 class Customer360View(APIView):
     """Support/Admin: comprehensive view of a customer's profile and activity."""
     permission_classes = [IsAuthenticated]

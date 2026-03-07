@@ -1,84 +1,83 @@
 # AI-Powered Digital Banking Platform
 
+A full-stack digital banking platform with AI-powered fraud detection, built with Django REST Framework, Next.js, and FastAPI.
+
 ## Team
+
 Abin Tomy, Elsa Maria, Naji Abdulla — MCA Team 3
 
 ## Tech Stack
-- **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS
-- **Backend:** Django 6.0, Django REST Framework, JWT Auth
-- **ML Service:** FastAPI, Isolation Forest (scikit-learn)
-- **Database:** PostgreSQL 16
-- **Real-time:** Django Channels, Redis
-- **Security:** Fernet encryption, bcrypt, token-based auth
+
+| Layer      | Technology                                           |
+|------------|------------------------------------------------------|
+| Frontend   | Next.js 16, React 19, TypeScript, Tailwind CSS       |
+| Backend    | Django 6.0, Django REST Framework, JWT (SimpleJWT)    |
+| ML Service | FastAPI, scikit-learn (Isolation Forest)              |
+| Database   | PostgreSQL 16                                        |
+| Cache      | Redis 7                                              |
+| Real-time  | Django Channels (WebSocket)                          |
+| Docs       | drf-spectacular (Swagger / ReDoc)                    |
 
 ## Features
-- Full digital banking (accounts, transfers, loans, credit cards, bill payments)
-- AI fraud detection with real behavioral signals
-- Live support chat (WebSocket)
-- Real-time fraud alerts for admin dashboard
-- Email verification and password reset
-- Role-based access: Customer / Support / Admin
 
-## Quick Start (Docker)
+- **Accounts** — Create, manage, and view bank accounts
+- **Transactions** — Fund transfers with idempotency, statements, PDF export
+- **Loans** — Loan types, applications, EMI calculator, admin approval
+- **Credit Cards** — Application, activation, Fernet-encrypted card data
+- **Bill Payments** — Biller management, autopay scheduling
+- **Fraud Detection** — AI model scoring every transfer in real-time
+- **2FA** — TOTP-based two-factor authentication
+- **Notifications** — In-app notifications with mark-read support
+- **Admin Dashboard** — Analytics, user management, fraud review
+- **Live Support** — WebSocket-based customer-support chat
+- **Email** — Verification, password reset via Resend API
+
+## Quick Start
 
 ```bash
-# 1. Clone the repo
+# Clone and configure
 git clone <repo-url>
 cd ai-powered-digital-banking-platform
+cp backend/.env.example backend/.env   # Fill in values
 
-# 2. Copy env files and fill in values
-cp backend/.env.example backend/.env
-cp .env.example .env
-
-# 3. Run the entire stack
+# Start everything
 docker compose up --build
-
-# 4. Open http://localhost:3000
 ```
 
-## Manual Setup (Development)
+| Service    | URL                                |
+|------------|------------------------------------|
+| Frontend   | http://localhost:3000               |
+| Backend    | http://localhost:8000               |
+| Swagger UI | http://localhost:8000/api/docs/     |
+| ReDoc      | http://localhost:8000/api/redoc/    |
+| ML Service | http://localhost:9000               |
 
-### Backend
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Developer Setup](docs/DEVELOPER_SETUP.md) | Full setup guide (Docker + manual), environment variables, running tests |
+| [Architecture](docs/ARCHITECTURE.md) | System design, data flows, security model, database schema |
+| [API Reference](docs/API_REFERENCE.md) | All endpoints with request/response examples |
+| [Swagger UI](http://localhost:8000/api/docs/) | Interactive API explorer (requires running backend) |
+
+## Running Tests
+
 ```bash
 cd backend
-python -m venv venv && venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-python manage.py migrate
-daphne -p 8000 core.asgi:application
-```
-
-### ML Service
-```bash
-cd ml_service
-pip install -r requirements.txt
-uvicorn app:app --port 9000
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Redis (required for WebSockets)
-```bash
-# Windows — start portable Redis:
-%TEMP%\redis\redis-server.exe
-
-# Or use Docker:
-docker run -p 6379:6379 redis:7-alpine
+python -m pytest          # 34 tests, ~62% coverage
 ```
 
 ## Environment Variables
 
-See `backend/.env.example` for all required variables.
+See [docs/DEVELOPER_SETUP.md](docs/DEVELOPER_SETUP.md#environment-variables) for the full reference. Key variables:
 
-| Variable | Description |
-|----------|-------------|
-| `DJANGO_SECRET_KEY` | Django secret key |
-| `DB_PASSWORD` | PostgreSQL password |
-| `RESEND_API_KEY` | Resend email API key |
-| `REDIS_URL` | Redis connection URL |
-| `ML_SERVICE_URL` | ML fraud detection service URL |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins |
+| Variable             | Description                |
+|----------------------|----------------------------|
+| `DJANGO_SECRET_KEY`  | Django secret key          |
+| `DB_NAME`            | PostgreSQL database name   |
+| `DB_USER`            | PostgreSQL user            |
+| `DB_PASSWORD`        | PostgreSQL password        |
+| `REDIS_URL`          | Redis connection URL       |
+| `ML_SERVICE_URL`     | Fraud detection service    |
+| `RESEND_API_KEY`     | Email service API key      |

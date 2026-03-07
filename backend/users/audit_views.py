@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 
+from drf_spectacular.utils import extend_schema
+
 from .models import AuditLog
 from .serializers import AuditLogSerializer
 from .permissions import IsAdmin
@@ -14,6 +16,7 @@ class AuditLogPagination(PageNumberPagination):
     max_page_size = 200
 
 
+@extend_schema(tags=['admin'])
 class AuditLogView(APIView):
     """Admin-only: view audit logs with optional filters."""
     permission_classes = [IsAuthenticated, IsAdmin]
