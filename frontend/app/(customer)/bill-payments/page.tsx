@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import Link from 'next/link';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface BillerCategory {
   id: string;
@@ -120,8 +121,8 @@ export default function BillPaymentsPage() {
       setBillers(billersRes.data);
       setSavedBillers(savedBillersRes.data);
       setDashboardData(dashboardRes.data);
-    } catch (error) {
-      console.error('Error fetching bill payments data:', error);
+    } catch {
+      // error handled silently
     } finally {
       setLoading(false);
     }
@@ -265,12 +266,12 @@ export default function BillPaymentsPage() {
                         <p className="font-medium text-white">{bill.saved_biller_nickname}</p>
                         <p className="text-sm text-purple-300">{bill.biller_name}</p>
                         <p className="text-sm text-slate-400">
-                          Due: {new Date(bill.due_date).toLocaleDateString()} 
+                          Due: {formatDate(bill.due_date)} 
                           {bill.is_overdue && <span className="text-red-400 ml-2">(Overdue)</span>}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-white">₹{bill.outstanding_amount.toLocaleString()}</p>
+                        <p className="font-semibold text-white">{formatCurrency(bill.outstanding_amount)}</p>
                         <span className={`px-2 py-1 text-xs rounded-full border ${
                           bill.status === 'OVERDUE' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
                           bill.status === 'UNPAID' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
@@ -309,11 +310,11 @@ export default function BillPaymentsPage() {
                         <p className="font-medium text-white">{payment.saved_biller_nickname}</p>
                         <p className="text-sm text-purple-300">{payment.biller_name}</p>
                         <p className="text-sm text-slate-400">
-                          {new Date(payment.initiated_at).toLocaleDateString()}
+                          {formatDate(payment.initiated_at)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-white">₹{payment.amount.toLocaleString()}</p>
+                        <p className="font-semibold text-white">{formatCurrency(payment.amount)}</p>
                         <span className={`px-2 py-1 text-xs rounded-full border ${
                           payment.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
                           payment.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :

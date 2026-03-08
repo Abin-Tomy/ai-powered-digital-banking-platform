@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
 
 interface Account {
   id: string;
@@ -117,8 +118,8 @@ function BillPaymentInner() {
       if (response.data.length > 0) {
         setFormData(prev => ({ ...prev, account: response.data[0].id }));
       }
-    } catch (error) {
-      console.error('Failed to fetch accounts:', error);
+    } catch {
+      // error handled silently
     }
   };
 
@@ -126,8 +127,8 @@ function BillPaymentInner() {
     try {
       const response = await api.get(`/bill-payments/billers/${billerId}/`);
       setBiller(response.data);
-    } catch (error) {
-      console.error('Failed to fetch biller:', error);
+    } catch {
+      // error handled silently
     }
   };
 
@@ -245,7 +246,6 @@ function BillPaymentInner() {
       await api.post('/bill-payments/payments/', paymentData);
       router.push('/bill-payments?success=true');
     } catch (error: any) {
-      console.error('Payment failed:', error);
       if (error.response?.data) {
         const serverErrors: Record<string, string> = {};
         Object.keys(error.response.data).forEach(key => {
@@ -260,13 +260,6 @@ function BillPaymentInner() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2
-    }).format(amount);
-  };
 
   const getMinDate = () => {
     const tomorrow = new Date();

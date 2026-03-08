@@ -16,17 +16,18 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 import Link from 'next/link';
 import DashboardLayout from '../components/DashboardLayout';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface LoanType {
   id: string;
   name: string;
   description: string;
-  minimum_amount: number;
-  maximum_amount: number;
-  minimum_interest_rate: number;
-  maximum_interest_rate: number;
-  minimum_tenure_months: number;
-  maximum_tenure_months: number;
+  interest_rate: number;
+  min_amount: number;
+  max_amount: number;
+  min_tenure_months: number;
+  max_tenure_months: number;
+  processing_fee: number;
 }
 
 interface EMIResult {
@@ -44,20 +45,18 @@ interface EMIResult {
 
 interface LoanApplication {
   id: string;
-  application_number: string;
   loan_type_name: string;
   requested_amount: number;
-  requested_tenure_months: number;
+  tenure_months: number;
   status: string;
-  created_at: string;
+  applied_at: string;
   approved_amount?: number;
-  approved_interest_rate?: number;
-  approved_tenure_months?: number;
+  approved_rate?: number;
+  rejection_reason?: string;
 }
 
 interface Loan {
   id: string;
-  loan_number: string;
   loan_type_name: string;
   principal_amount: number;
   interest_rate: number;
@@ -65,9 +64,10 @@ interface Loan {
   monthly_emi: number;
   outstanding_balance: number;
   status: string;
-  start_date: string;
-  next_emi_date: string;
-  total_paid: number;
+  disbursed_at: string;
+  first_emi_date: string;
+  maturity_date: string;
+  last_payment_date?: string;
 }
 
 export default function LoansPage() {
@@ -106,8 +106,8 @@ export default function LoansPage() {
       setLoanTypes(typesRes.data);
       setApplications(applicationsRes.data);
       setLoans(loansRes.data);
-    } catch (error) {
-      console.error('Error fetching loan data:', error);
+    } catch {
+      // silently ignore
     } finally {
       setLoading(false);
     }
@@ -128,8 +128,6 @@ export default function LoansPage() {
       setEmiLoading(false);
     }
   };
-
-  const formatINR = (n: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -175,7 +173,7 @@ export default function LoansPage() {
 
   const totalLoanAmount = loans.reduce((sum, loan) => sum + loan.principal_amount, 0);
   const totalOutstanding = loans.reduce((sum, loan) => sum + loan.outstanding_balance, 0);
-  const totalPaid = loans.reduce((sum, loan) => sum + loan.total_paid, 0);
+  const totalPaid = loans.reduce((sum, loan) => sum + (loan.principal_amount - loan.outstanding_balance), 0);
 
   return (
     <DashboardLayout>
@@ -210,7 +208,7 @@ export default function LoansPage() {
               <h3 className="text-purple-200 text-sm font-semibold">Total Amount</h3>
               <DollarSign className="h-5 w-5 text-purple-400" />
             </div>
-            <div className="text-3xl font-bold text-white">₹{totalLoanAmount.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-white">{formatCurrency(totalLoanAmount)}</div>
             <p className="text-purple-300 text-sm mt-1">Principal amount</p>
           </div>
 
@@ -219,7 +217,7 @@ export default function LoansPage() {
               <h3 className="text-purple-200 text-sm font-semibold">Outstanding</h3>
               <AlertCircle className="h-5 w-5 text-purple-400" />
             </div>
-            <div className="text-3xl font-bold text-white">₹{totalOutstanding.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-white">{formatCurrency(totalOutstanding)}</div>
             <p className="text-purple-300 text-sm mt-1">Amount remaining</p>
           </div>
 
@@ -228,7 +226,7 @@ export default function LoansPage() {
               <h3 className="text-purple-200 text-sm font-semibold">Paid Amount</h3>
               <CheckCircle className="h-5 w-5 text-purple-400" />
             </div>
-            <div className="text-3xl font-bold text-white">₹{totalPaid.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-white">{formatCurrency(totalPaid)}</div>
             <p className="text-purple-300 text-sm mt-1">Total paid</p>
           </div>
         </div>
@@ -251,7 +249,7 @@ export default function LoansPage() {
               <div>
                 <div className="flex justify-between mb-2">
                   <label className="text-purple-200 text-sm font-semibold">Loan Amount</label>
-                  <span className="text-white font-bold">{formatINR(loanAmount)}</span>
+                  <span className="text-white font-bold">{formatCurrency(loanAmount)}</span>
                 </div>
                 <input type="range" min={10000} max={10000000} step={10000} value={loanAmount}
                   onChange={(e) => setLoanAmount(Number(e.target.value))}
@@ -292,15 +290,15 @@ export default function LoansPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-slate-800/60 rounded-xl p-4 border border-purple-500/10 text-center">
                     <div className="text-purple-300 text-xs mb-1">Monthly EMI</div>
-                    <div className="text-white font-bold text-lg">{formatINR(emiResult.emi)}</div>
+                    <div className="text-white font-bold text-lg">{formatCurrency(emiResult.emi)}</div>
                   </div>
                   <div className="bg-slate-800/60 rounded-xl p-4 border border-emerald-500/10 text-center">
                     <div className="text-purple-300 text-xs mb-1">Total Payment</div>
-                    <div className="text-emerald-400 font-bold text-lg">{formatINR(emiResult.total_payment)}</div>
+                    <div className="text-emerald-400 font-bold text-lg">{formatCurrency(emiResult.total_payment)}</div>
                   </div>
                   <div className="bg-slate-800/60 rounded-xl p-4 border border-red-500/10 text-center">
                     <div className="text-purple-300 text-xs mb-1">Total Interest</div>
-                    <div className="text-red-400 font-bold text-lg">{formatINR(emiResult.total_interest)}</div>
+                    <div className="text-red-400 font-bold text-lg">{formatCurrency(emiResult.total_interest)}</div>
                   </div>
                 </div>
               )}
@@ -365,10 +363,10 @@ export default function LoansPage() {
                       {emiResult.amortization_schedule.map((row) => (
                         <tr key={row.month} className="hover:bg-slate-800/40 transition-colors">
                           <td className="px-4 py-2.5 text-white">{row.month}</td>
-                          <td className="px-4 py-2.5 text-white text-right">{formatINR(row.emi)}</td>
-                          <td className="px-4 py-2.5 text-purple-300 text-right">{formatINR(row.principal_component)}</td>
-                          <td className="px-4 py-2.5 text-red-400 text-right">{formatINR(row.interest_component)}</td>
-                          <td className="px-4 py-2.5 text-white text-right">{formatINR(row.outstanding_balance)}</td>
+                          <td className="px-4 py-2.5 text-white text-right">{formatCurrency(row.emi)}</td>
+                          <td className="px-4 py-2.5 text-purple-300 text-right">{formatCurrency(row.principal_component)}</td>
+                          <td className="px-4 py-2.5 text-red-400 text-right">{formatCurrency(row.interest_component)}</td>
+                          <td className="px-4 py-2.5 text-white text-right">{formatCurrency(row.outstanding_balance)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -413,7 +411,7 @@ export default function LoansPage() {
                           {loan.status}
                         </span>
                       </div>
-                      <p className="text-purple-300 text-sm">Loan #{loan.loan_number}</p>
+                      <p className="text-purple-300 text-sm">Disbursed: {formatDate(loan.disbursed_at)}</p>
                     </div>
                     <Link href={`/loans/${loan.id}`}>
                       <button className="px-4 py-2 border border-purple-500/30 text-purple-300 rounded-lg hover:bg-purple-500/10 transition-all">
@@ -425,19 +423,19 @@ export default function LoansPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div>
                       <p className="text-purple-300 text-sm mb-1">Principal</p>
-                      <p className="text-white font-bold text-lg">₹{loan.principal_amount.toLocaleString()}</p>
+                      <p className="text-white font-bold text-lg">{formatCurrency(loan.principal_amount)}</p>
                     </div>
                     <div>
                       <p className="text-purple-300 text-sm mb-1">Outstanding</p>
-                      <p className="text-white font-bold text-lg">₹{loan.outstanding_balance.toLocaleString()}</p>
+                      <p className="text-white font-bold text-lg">{formatCurrency(loan.outstanding_balance)}</p>
                     </div>
                     <div>
                       <p className="text-purple-300 text-sm mb-1">Monthly EMI</p>
-                      <p className="text-white font-bold text-lg">₹{loan.monthly_emi.toLocaleString()}</p>
+                      <p className="text-white font-bold text-lg">{formatCurrency(loan.monthly_emi)}</p>
                     </div>
                     <div>
-                      <p className="text-purple-300 text-sm mb-1">Next EMI</p>
-                      <p className="text-white font-bold text-lg">{new Date(loan.next_emi_date).toLocaleDateString()}</p>
+                      <p className="text-purple-300 text-sm mb-1">Matures</p>
+                      <p className="text-white font-bold text-lg">{formatDate(loan.maturity_date)}</p>
                     </div>
                   </div>
                   
