@@ -28,6 +28,8 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
             "is_verified",
             "totp_enabled",
+            "date_joined",
+            "last_login",
         ]
 
 
