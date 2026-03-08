@@ -20,6 +20,7 @@ export default function LoginPage() {
   const completeLogin = (data: { access: string; refresh: string; user: { role: string } }) => {
     localStorage.setItem("access_token", data.access);
     localStorage.setItem("refresh_token", data.refresh);
+    localStorage.setItem("user", JSON.stringify(data.user));
     document.cookie = `access_token=${data.access}; path=/; max-age=86400`;
     document.cookie = `role=${data.user.role}; path=/; max-age=86400`;
     const role = data.user.role?.toUpperCase();
@@ -53,13 +54,22 @@ export default function LoginPage() {
     } catch (err: unknown) {
       interface AxiosError {
         response?: {
+          status?: number;
           data?: {
             detail?: string;
           };
         };
       }
       const axiosErr = err as AxiosError;
-      const errorMessage = axiosErr.response?.data?.detail || "Login failed. Please check your credentials.";
+      const status = axiosErr.response?.status;
+      let errorMessage: string;
+      if (status === 401) {
+        errorMessage = "Invalid email or password. Please try again.";
+      } else if (status === 429) {
+        errorMessage = "Too many attempts. Please try again later.";
+      } else {
+        errorMessage = axiosErr.response?.data?.detail || "Login failed. Please check your credentials.";
+      }
       setError(errorMessage);
       setIsLoading(false);
     }
@@ -195,8 +205,8 @@ export default function LoginPage() {
                   <div className="relative z-10">
                     {/* Header */}
                     <div className="mb-8">
-                      <h2 className="text-3xl font-bold text-white mb-2">Login</h2>
-                      <p className="text-purple-300 text-sm">Access your secure account</p>
+                      <h2 className="text-3xl font-bold text-white mb-2">Welcome back</h2>
+                      <p className="text-purple-300 text-sm">Sign in to access your account</p>
                     </div>
 
                     {/* Error Alert */}
@@ -272,7 +282,7 @@ export default function LoginPage() {
                           <input
                             type="email"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
                             placeholder="Enter your email"
                             disabled={isLoading}
                             className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 focus:bg-slate-800/80 transition-all duration-200 disabled:opacity-50"
@@ -308,7 +318,7 @@ export default function LoginPage() {
                           <input
                             type={showPassword ? "text" : "password"}
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
                             placeholder="Enter your password"
                             disabled={isLoading}
                             className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 focus:bg-slate-800/80 transition-all duration-200 disabled:opacity-50"
@@ -344,7 +354,7 @@ export default function LoginPage() {
                             </>
                           ) : (
                             <>
-                              <span>Login</span>
+                              <span>Sign In</span>
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                               </svg>

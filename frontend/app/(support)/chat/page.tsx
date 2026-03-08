@@ -83,10 +83,7 @@ export default function SupportChatPage() {
 
   const fetchCustomers = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      const usersRes = await api.get("/admin/users/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const usersRes = await api.get("/admin/users/");
       const allUsers = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.results || [];
       const customerUsers = allUsers.filter(
         (user: any) => user.role === "CUSTOMER"

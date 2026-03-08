@@ -5,7 +5,7 @@ from drf_spectacular.utils import extend_schema
 
 from .models import User
 from .serializers import UserSerializer
-from .permissions import IsAdmin
+from .permissions import IsAdmin, IsSupport
 
 
 class UserPagination(PageNumberPagination):
@@ -17,9 +17,9 @@ class UserPagination(PageNumberPagination):
 @extend_schema(tags=['admin'])
 class UserListView(ListAPIView):
     """
-    Admin-only: list all users
+    Admin / Support: list all users
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin | IsSupport]
     pagination_class = UserPagination

@@ -11,13 +11,11 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleForgot = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendResetLink = async () => {
     if (!email) {
       setError("Please enter your email address");
       return;
     }
-
     setLoading(true);
     setError("");
     try {
@@ -28,6 +26,11 @@ export default function ForgotPasswordPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendResetLink();
   };
 
   return (
@@ -59,10 +62,17 @@ export default function ForgotPasswordPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Check Your Email</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">Check your inbox</h2>
               <p className="text-purple-300 mb-6">
-                We&apos;ve sent a password reset link to <span className="text-white">{email}</span>
+                We sent a reset link to <span className="text-white font-medium">{email}</span>
               </p>
+              <button
+                onClick={sendResetLink}
+                disabled={loading}
+                className="w-full bg-slate-800/50 border border-purple-500/30 text-purple-300 hover:text-white font-medium py-3 rounded-xl hover:bg-slate-700/50 transition-all mb-3 disabled:opacity-50"
+              >
+                {loading ? "Sending..." : "Didn't receive it? Resend"}
+              </button>
               <button
                 onClick={() => router.push("/login")}
                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl hover:scale-[1.02] transition-all"
@@ -72,7 +82,14 @@ export default function ForgotPasswordPage() {
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-white mb-2 text-center">Forgot Password?</h1>
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center">
+                  <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-2 text-center">Forgot your password?</h1>
               <p className="text-purple-300 text-center mb-6">
                 Enter your email and we&apos;ll send you a reset link
               </p>

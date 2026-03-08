@@ -237,7 +237,7 @@ export default function ProfilePage() {
                 <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-6 border border-emerald-500/20">
                   <div className="text-emerald-400 text-sm font-medium mb-2">Total Balance</div>
                   <div className="text-3xl font-bold text-emerald-400">
-                    ${getTotalBalance().toLocaleString()}
+                    {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(getTotalBalance())}
                   </div>
                 </div>
                 <div className="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/20">
@@ -283,7 +283,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="text-right">
                           <div className="text-emerald-400 font-bold text-lg">
-                            ${parseFloat(account.balance).toLocaleString()}
+                            {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(parseFloat(account.balance))}
                           </div>
                           <span className={`px-2 py-0.5 rounded-full text-xs ${
                             account.status === "ACTIVE"

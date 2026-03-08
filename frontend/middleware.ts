@@ -32,19 +32,22 @@ export function middleware(request: NextRequest) {
   }
 
   // Role-based route protection
-  if (pathname.startsWith("/admin-dashboard") || pathname.startsWith("/users") || pathname.startsWith("/transactions")) {
+  // Admin routes
+  if (pathname.startsWith("/admin-dashboard") || pathname.startsWith("/admin/") || pathname.startsWith("/users") || pathname.startsWith("/transactions") || pathname.startsWith("/customer360")) {
     if (role !== "ADMIN") {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
-  if (pathname.startsWith("/support-dashboard") || pathname.startsWith("/chat")) {
+  // Support routes
+  if (pathname.startsWith("/support-dashboard") || pathname.startsWith("/support/") || pathname.startsWith("/chat")) {
     if (role !== "SUPPORT" && role !== "ADMIN") {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
-  if (pathname.startsWith("/customer-dashboard") || pathname.startsWith("/accounts") || pathname.startsWith("/statements") || pathname.startsWith("/transfer")) {
+  // Customer routes
+  if (pathname.startsWith("/customer-dashboard") || pathname.startsWith("/accounts") || pathname.startsWith("/statements") || pathname.startsWith("/transfer") || pathname.startsWith("/loans") || pathname.startsWith("/credit-cards") || pathname.startsWith("/bill-payments") || pathname.startsWith("/credit-score") || pathname.startsWith("/profile") || pathname.startsWith("/support-chat") || pathname.startsWith("/audit-log")) {
     if (role !== "CUSTOMER") {
       return NextResponse.redirect(new URL("/login", request.url));
     }
@@ -58,7 +61,9 @@ export const config = {
   matcher: [
     "/",
     "/admin-dashboard/:path*",
+    "/admin/:path*",
     "/support-dashboard/:path*",
+    "/support/:path*",
     "/customer-dashboard/:path*",
     "/accounts/:path*",
     "/statements/:path*",
@@ -66,5 +71,13 @@ export const config = {
     "/users/:path*",
     "/transactions/:path*",
     "/chat/:path*",
+    "/loans/:path*",
+    "/credit-cards/:path*",
+    "/bill-payments/:path*",
+    "/credit-score/:path*",
+    "/profile/:path*",
+    "/support-chat/:path*",
+    "/audit-log/:path*",
+    "/customer360/:path*",
   ],
 };

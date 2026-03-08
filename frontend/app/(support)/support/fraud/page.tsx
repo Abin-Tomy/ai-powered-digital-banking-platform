@@ -52,11 +52,8 @@ export default function SupportFraudPage() {
     setSuccess("");
 
     try {
-      const token = localStorage.getItem("access_token");
       await api.post(`/fraud/review/${selectedFlag.id}/`, {
         status: decision
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
       setSuccess(`Transaction marked as ${decision === "CONFIRMED_FRAUD" ? "Confirmed Fraud" : "False Positive"}`);

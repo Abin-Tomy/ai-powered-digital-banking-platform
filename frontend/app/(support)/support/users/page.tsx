@@ -30,10 +30,7 @@ export default function SupportUsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("access_token");
-      const response = await api.get("/admin/users/", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get("/admin/users/");
       const data = response.data;
       const allUsers = Array.isArray(data) ? data : data.results || [];
       // Filter to show only customers for support staff

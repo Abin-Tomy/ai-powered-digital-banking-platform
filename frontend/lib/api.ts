@@ -14,8 +14,14 @@ const api = axios.create({
   withCredentials: true, // 🔑 VERY IMPORTANT (sends cookies)
 });
 
-// Add CSRF token to every request
+// Add auth token and CSRF token to every request
 api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
   const csrfToken = getCookie('csrftoken');
   if (csrfToken) {
     config.headers['X-CSRFToken'] = csrfToken;
@@ -52,6 +58,7 @@ api.interceptors.response.use(
         
         const { access } = response.data;
         localStorage.setItem("access_token", access);
+        document.cookie = `access_token=${access}; path=/; max-age=86400`;
         
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${access}`;
