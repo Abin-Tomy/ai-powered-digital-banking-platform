@@ -5,8 +5,6 @@ import {
   CreditCard, 
   DollarSign, 
   Plus,
-  Eye,
-  EyeOff,
   Lock,
   Unlock,
   Gift,
@@ -18,6 +16,7 @@ import {
 import api from '@/lib/api';
 import Link from 'next/link';
 import DashboardLayout from '../components/DashboardLayout';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface CreditCardType {
   id: string;
@@ -57,23 +56,14 @@ interface CreditCard {
   expiry_date: string;
 }
 
-interface Transaction {
-  id: string;
-  transaction_type: string;
-  amount: number;
-  merchant_name: string;
-  transaction_date: string;
-  status: string;
-  reward_points_earned: number;
-}
-
 export default function CreditCardsPage() {
   const [cardTypes, setCardTypes] = useState<CreditCardType[]>([]);
   const [applications, setApplications] = useState<CreditCardApplication[]>([]);
   const [cards, setCards] = useState<CreditCard[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCardDetails, setShowCardDetails] = useState<Record<string, boolean>>({});
+  const [payCardId, setPayCardId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -81,19 +71,17 @@ export default function CreditCardsPage() {
 
   const fetchData = async () => {
     try {
-      const [typesRes, applicationsRes, cardsRes, transactionsRes] = await Promise.all([
+      const [typesRes, applicationsRes, cardsRes] = await Promise.all([
         api.get('/credit-cards/types/'),
         api.get('/credit-cards/applications/'),
-        api.get('/credit-cards/'),
-        api.get('/credit-cards/transactions/')
+        api.get('/credit-cards/')
       ]);
 
       setCardTypes(typesRes.data);
       setApplications(applicationsRes.data);
       setCards(cardsRes.data);
-      setTransactions(transactionsRes.data);
-    } catch (error) {
-      console.error('Error fetching credit card data:', error);
+    } catch {
+      // silently ignore
     } finally {
       setLoading(false);
     }
@@ -125,25 +113,36 @@ export default function CreditCardsPage() {
     }
   };
 
-  const toggleCardDetails = (cardId: string) => {
-    setShowCardDetails(prev => ({ ...prev, [cardId]: !prev[cardId] }));
-  };
-
   const blockCard = async (cardId: string) => {
     try {
       await api.post(`/credit-cards/${cardId}/block/`);
-      fetchData(); // Refresh data
-    } catch (error) {
-      console.error('Error blocking card:', error);
+      fetchData();
+    } catch {
+      // silently ignore
     }
   };
 
   const unblockCard = async (cardId: string) => {
     try {
       await api.post(`/credit-cards/${cardId}/unblock/`);
-      fetchData(); // Refresh data
-    } catch (error) {
-      console.error('Error unblocking card:', error);
+      fetchData();
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handlePayBill = async () => {
+    if (!payCardId || !payAmount) return;
+    setPaying(true);
+    try {
+      await api.post(`/credit-cards/${payCardId}/payment/`, { amount: payAmount });
+      setPayCardId(null);
+      setPayAmount('');
+      fetchData();
+    } catch {
+      // silently ignore
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -197,7 +196,7 @@ export default function CreditCardsPage() {
               <h3 className="text-purple-200 text-sm font-semibold">Credit Limit</h3>
               <DollarSign className="h-5 w-5 text-purple-400" />
             </div>
-            <div className="text-3xl font-bold text-white">₹{totalCreditLimit.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-white">{formatCurrency(totalCreditLimit)}</div>
             <p className="text-purple-300 text-sm mt-1">Total limit</p>
           </div>
 
@@ -206,7 +205,7 @@ export default function CreditCardsPage() {
               <h3 className="text-purple-200 text-sm font-semibold">Outstanding</h3>
               <TrendingUp className="h-5 w-5 text-purple-400" />
             </div>
-            <div className="text-3xl font-bold text-white">₹{totalOutstanding.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-white">{formatCurrency(totalOutstanding)}</div>
             <p className="text-purple-300 text-sm mt-1">Amount due</p>
           </div>
 
@@ -258,18 +257,12 @@ export default function CreditCardsPage() {
                   <div className="flex justify-between items-end">
                     <div>
                       <p className="text-2xl font-mono tracking-wider">
-                        {showCardDetails[card.id] ? '4532 1234 5678 9876' : card.masked_card_number}
+                        {card.masked_card_number}
                       </p>
                       <p className="text-sm text-purple-100 mt-1">
-                        Valid Thru: {new Date(card.expiry_date).toLocaleDateString('en-US', { month: '2-digit', year: '2-digit' })}
+                        Valid Thru: {formatDate(card.expiry_date)}
                       </p>
                     </div>
-                    <button
-                      onClick={() => toggleCardDetails(card.id)}
-                      className="p-2 text-white hover:bg-purple-500/20 rounded-lg transition-all"
-                    >
-                      {showCardDetails[card.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
                   </div>
                 </div>
 
@@ -278,15 +271,15 @@ export default function CreditCardsPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div>
                       <p className="text-purple-300 text-sm mb-1">Credit Limit</p>
-                      <p className="text-white font-bold text-lg">₹{card.credit_limit.toLocaleString()}</p>
+                      <p className="text-white font-bold text-lg">{formatCurrency(card.credit_limit)}</p>
                     </div>
                     <div>
                       <p className="text-purple-300 text-sm mb-1">Available Credit</p>
-                      <p className="text-emerald-400 font-bold text-lg">₹{card.available_credit.toLocaleString()}</p>
+                      <p className="text-emerald-400 font-bold text-lg">{formatCurrency(card.available_credit)}</p>
                     </div>
                     <div>
                       <p className="text-purple-300 text-sm mb-1">Outstanding</p>
-                      <p className="text-orange-400 font-bold text-lg">₹{card.outstanding_balance.toLocaleString()}</p>
+                      <p className="text-orange-400 font-bold text-lg">{formatCurrency(card.outstanding_balance)}</p>
                     </div>
                     <div>
                       <p className="text-purple-300 text-sm mb-1">Reward Points</p>
@@ -299,13 +292,15 @@ export default function CreditCardsPage() {
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                         <div>
                           <p className="text-orange-300 font-medium">
-                            Minimum Due: ₹{card.minimum_due.toLocaleString()}
+                            Minimum Due: {formatCurrency(card.minimum_due)}
                           </p>
                           <p className="text-orange-400 text-sm">
-                            Due Date: {new Date(card.due_date).toLocaleDateString()}
+                            Due Date: {formatDate(card.due_date)}
                           </p>
                         </div>
-                        <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-all">
+                        <button
+                          onClick={() => { setPayCardId(card.id); setPayAmount(String(card.minimum_due)); }}
+                          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-all">
                           Pay Now
                         </button>
                       </div>
@@ -347,6 +342,42 @@ export default function CreditCardsPage() {
           )}
         </div>
       </div>
+
+      {/* Pay Bill Modal */}
+      {payCardId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-purple-500/30 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <h3 className="text-2xl font-bold text-white mb-2">Pay Credit Card Bill</h3>
+            <p className="text-purple-300 text-sm mb-6">Enter the amount you wish to pay</p>
+            <div className="mb-6">
+              <label className="block text-purple-200 text-sm font-semibold mb-2">Payment Amount (₹)</label>
+              <input
+                type="number"
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/30 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                placeholder="Enter amount"
+                min="1"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setPayCardId(null); setPayAmount(''); }}
+                className="flex-1 px-4 py-3 border border-purple-500/30 text-purple-300 rounded-xl hover:bg-purple-500/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePayBill}
+                disabled={paying || !payAmount}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {paying ? 'Processing...' : 'Pay Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

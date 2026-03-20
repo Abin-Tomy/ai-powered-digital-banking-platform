@@ -9,7 +9,7 @@ from drf_spectacular.utils import extend_schema
 from .models import FraudFlag
 from .serializers import FraudFlagSerializer
 from users.models import AuditLog
-from users.permissions import IsAdmin
+from users.permissions import IsAdmin, IsSupport
 
 
 class FraudFlagPagination(PageNumberPagination):
@@ -46,9 +46,9 @@ class FlaggedTransactionsView(APIView):
 @extend_schema(tags=['fraud'])
 class ReviewFraudView(APIView):
     """
-    Admin confirms or clears fraud
+    Admin / Support: confirms or clears fraud
     """
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, IsAdmin | IsSupport]
 
     def post(self, request, fraud_id):
         try:

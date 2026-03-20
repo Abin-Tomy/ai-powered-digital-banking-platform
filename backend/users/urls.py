@@ -7,6 +7,7 @@ from .auth_views import (
 )
 from .views import UserListView
 from .credit_views import CreditScoreView
+from .profile_views import ProfileUpdateView, ChangePasswordView
 from .notification_views import NotificationListView, MarkNotificationReadView, MarkAllNotificationsReadView
 from .audit_views import AuditLogView
 from .customer360_views import Customer360View
@@ -35,6 +36,10 @@ urlpatterns = [
     # Sessions
     path('users/sessions/', SessionListView.as_view()),
     path('users/sessions/<uuid:session_id>/', SessionRevokeView.as_view()),
+
+    # Profile update & password change
+    path('users/profile/update/', ProfileUpdateView.as_view()),
+    path('users/change-password/', ChangePasswordView.as_view()),
 
     # Credit score
     path('users/credit-score/', CreditScoreView.as_view(), name='credit-score'),

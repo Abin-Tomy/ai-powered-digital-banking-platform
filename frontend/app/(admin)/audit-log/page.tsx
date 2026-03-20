@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import AdminDashboardLayout from "../components/AdminDashboardLayout";
+import { formatDateTime } from "@/lib/utils";
 
 interface AuditEntry {
   id: number;
@@ -27,8 +28,7 @@ export default function AuditLogPage() {
   const fetchLogs = async (url: string) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("access_token");
-      const res = await api.get(url, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get(url);
       // Handle paginated or non-paginated response
       if (res.data.results) {
         setLogs(res.data.results);
@@ -136,7 +136,7 @@ export default function AuditLogPage() {
                   {logs.map((log) => (
                     <tr key={log.id} className="border-b border-purple-500/10 hover:bg-slate-800/50">
                       <td className="py-3 px-4 text-purple-400 text-xs whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleString()}
+                        {formatDateTime(log.created_at)}
                       </td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-lg text-xs font-medium ${actionColors[log.action] || "text-purple-300 bg-purple-500/20"}`}>

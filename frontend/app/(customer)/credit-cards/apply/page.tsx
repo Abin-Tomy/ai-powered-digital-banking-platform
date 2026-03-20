@@ -6,21 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { 
   ArrowLeft,
   CreditCard,
-  DollarSign,
-  CheckCircle,
-  AlertTriangle,
-  Gift,
-  Shield,
-  Star
+  CheckCircle
 } from 'lucide-react';
 import api from '@/lib/api';
 import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
 
 interface CreditCardType {
   id: string;
@@ -41,21 +36,10 @@ interface FormData {
   annualIncome: number;
   employmentType: string;
   companyName: string;
-  workExperience: number;
-  panNumber: string;
-  aadhaarNumber: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  phone: string;
-  email: string;
-  monthlyExpenses: number;
+  workExperienceMonths: number;
+  monthlySalary: number;
   existingCreditCards: number;
-  existingLoans: number;
-  purpose: string;
-  consentDataUsage: boolean;
-  consentCreditCheck: boolean;
+  existingLoansEmi: number;
 }
 
 const employmentTypes = [
@@ -63,9 +47,7 @@ const employmentTypes = [
   'Self Employed',
   'Business Owner',
   'Professional',
-  'Retired',
-  'Student',
-  'Homemaker'
+  'Retired'
 ];
 
 const states = [
@@ -87,21 +69,10 @@ export default function CreditCardApplication() {
     annualIncome: 0,
     employmentType: '',
     companyName: '',
-    workExperience: 0,
-    panNumber: '',
-    aadhaarNumber: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    phone: '',
-    email: '',
-    monthlyExpenses: 0,
+    workExperienceMonths: 0,
+    monthlySalary: 0,
     existingCreditCards: 0,
-    existingLoans: 0,
-    purpose: '',
-    consentDataUsage: false,
-    consentCreditCheck: false
+    existingLoansEmi: 0
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -122,8 +93,8 @@ export default function CreditCardApplication() {
     try {
       const response = await api.get('/credit-cards/types/');
       setCardTypes(response.data);
-    } catch (error) {
-      console.error('Failed to fetch card types:', error);
+    } catch {
+      // silently ignore
     }
   };
 
@@ -149,52 +120,6 @@ export default function CreditCardApplication() {
     if (stepNumber === 2) {
       if (!formData.employmentType) newErrors.employmentType = 'Employment type is required';
       if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required';
-      if (formData.workExperience < 0) newErrors.workExperience = 'Work experience cannot be negative';
-      if (!formData.panNumber.trim()) newErrors.panNumber = 'PAN number is required';
-      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber)) {
-        newErrors.panNumber = 'Invalid PAN format (e.g., ABCDE1234F)';
-      }
-      if (!formData.aadhaarNumber.trim()) newErrors.aadhaarNumber = 'Aadhaar number is required';
-      if (!/^\d{12}$/.test(formData.aadhaarNumber)) {
-        newErrors.aadhaarNumber = 'Aadhaar must be 12 digits';
-      }
-    }
-
-    if (stepNumber === 3) {
-      if (!formData.address.trim()) newErrors.address = 'Address is required';
-      if (!formData.city.trim()) newErrors.city = 'City is required';
-      if (!formData.state) newErrors.state = 'State is required';
-      if (!formData.pincode.trim()) newErrors.pincode = 'Pincode is required';
-      if (!/^\d{6}$/.test(formData.pincode)) {
-        newErrors.pincode = 'Pincode must be 6 digits';
-      }
-      if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
-      if (!/^\d{10}$/.test(formData.phone)) {
-        newErrors.phone = 'Phone must be 10 digits';
-      }
-      if (!formData.email.trim()) newErrors.email = 'Email is required';
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        newErrors.email = 'Invalid email format';
-      }
-    }
-
-    if (stepNumber === 4) {
-      if (!formData.monthlyExpenses || formData.monthlyExpenses < 0) {
-        newErrors.monthlyExpenses = 'Monthly expenses must be a positive number';
-      }
-      if (formData.existingCreditCards < 0) {
-        newErrors.existingCreditCards = 'Cannot be negative';
-      }
-      if (formData.existingLoans < 0) {
-        newErrors.existingLoans = 'Cannot be negative';
-      }
-      if (!formData.purpose.trim()) newErrors.purpose = 'Purpose is required';
-      if (!formData.consentDataUsage) {
-        newErrors.consentDataUsage = 'You must consent to data usage';
-      }
-      if (!formData.consentCreditCheck) {
-        newErrors.consentCreditCheck = 'You must consent to credit check';
-      }
     }
 
     setErrors(newErrors);
@@ -219,7 +144,7 @@ export default function CreditCardApplication() {
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(4)) return;
+    if (!validateStep(2)) return;
 
     setLoading(true);
     try {
@@ -229,30 +154,20 @@ export default function CreditCardApplication() {
         annual_income: formData.annualIncome,
         employment_type: formData.employmentType,
         company_name: formData.companyName,
-        work_experience_years: formData.workExperience,
-        pan_number: formData.panNumber,
-        aadhaar_number: formData.aadhaarNumber,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.pincode,
-        phone: formData.phone,
-        email: formData.email,
-        monthly_expenses: formData.monthlyExpenses,
-        existing_credit_cards_count: formData.existingCreditCards,
-        existing_loans_count: formData.existingLoans,
-        purpose: formData.purpose
+        work_experience_months: formData.workExperienceMonths,
+        monthly_salary: formData.monthlySalary,
+        existing_credit_cards: formData.existingCreditCards,
+        existing_loans_emi: formData.existingLoansEmi,
       };
 
       await api.post('/credit-cards/applications/create/', applicationData);
-      router.push('/credit-cards?tab=applications&success=true');
+      router.push('/credit-cards');
     } catch (error: any) {
-      console.error('Application submission failed:', error);
       if (error.response?.data) {
         const serverErrors: Record<string, string> = {};
         Object.keys(error.response.data).forEach(key => {
-          serverErrors[key] = Array.isArray(error.response.data[key]) 
-            ? error.response.data[key][0] 
+          serverErrors[key] = Array.isArray(error.response.data[key])
+            ? error.response.data[key][0]
             : error.response.data[key];
         });
         setErrors(serverErrors);
@@ -260,15 +175,6 @@ export default function CreditCardApplication() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   const renderStep1 = () => (
@@ -408,167 +314,47 @@ export default function CreditCardApplication() {
         </div>
 
         <div>
-          <Label htmlFor="workExperience" className="text-white mb-2 block">Work Experience (Years)</Label>
+          <Label htmlFor="companyName" className="text-white mb-2 block">Company Name *</Label>
           <Input
-            id="workExperience"
-            type="number"
-            min="0"
-            max="50"
-            value={formData.workExperience}
-            onChange={(e) => handleInputChange('workExperience', parseInt(e.target.value) || 0)}
+            id="companyName"
+            value={formData.companyName}
+            onChange={(e) => handleInputChange('companyName', e.target.value)}
             className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="5"
+            placeholder="ABC Technologies Pvt Ltd"
           />
-          {errors.workExperience && <p className="text-red-400 text-sm mt-1">{errors.workExperience}</p>}
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="companyName" className="text-white mb-2 block">Company Name *</Label>
-        <Input
-          id="companyName"
-          value={formData.companyName}
-          onChange={(e) => handleInputChange('companyName', e.target.value)}
-          className="bg-slate-800/50 border-purple-500/20 text-white"
-          placeholder="ABC Technologies Pvt Ltd"
-        />
-        {errors.companyName && <p className="text-red-400 text-sm mt-1">{errors.companyName}</p>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <Label htmlFor="panNumber" className="text-white mb-2 block">PAN Number *</Label>
-          <Input
-            id="panNumber"
-            value={formData.panNumber}
-            onChange={(e) => handleInputChange('panNumber', e.target.value.toUpperCase())}
-            className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="ABCDE1234F"
-            maxLength={10}
-          />
-          {errors.panNumber && <p className="text-red-400 text-sm mt-1">{errors.panNumber}</p>}
-        </div>
-
-        <div>
-          <Label htmlFor="aadhaarNumber" className="text-white mb-2 block">Aadhaar Number *</Label>
-          <Input
-            id="aadhaarNumber"
-            value={formData.aadhaarNumber}
-            onChange={(e) => handleInputChange('aadhaarNumber', e.target.value.replace(/\D/g, ''))}
-            className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="123456789012"
-            maxLength={12}
-          />
-          {errors.aadhaarNumber && <p className="text-red-400 text-sm mt-1">{errors.aadhaarNumber}</p>}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div>
-        <Label htmlFor="address" className="text-white mb-2 block">Address *</Label>
-        <Textarea
-          id="address"
-          value={formData.address}
-          onChange={(e) => handleInputChange('address', e.target.value)}
-          className="bg-slate-800/50 border-purple-500/20 text-white"
-          placeholder="Enter your complete address"
-          rows={3}
-        />
-        {errors.address && <p className="text-red-400 text-sm mt-1">{errors.address}</p>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <Label htmlFor="city" className="text-white mb-2 block">City *</Label>
-          <Input
-            id="city"
-            value={formData.city}
-            onChange={(e) => handleInputChange('city', e.target.value)}
-            className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="Mumbai"
-          />
-          {errors.city && <p className="text-red-400 text-sm mt-1">{errors.city}</p>}
-        </div>
-
-        <div>
-          <Label htmlFor="state" className="text-white mb-2 block">State *</Label>
-          <Select value={formData.state} onValueChange={(value) => handleInputChange('state', value)}>
-            <SelectTrigger className="bg-slate-800/50 border-purple-500/20 text-white">
-              <SelectValue placeholder="Select state" />
-            </SelectTrigger>
-            <SelectContent>
-              {states.map((state) => (
-                <SelectItem key={state} value={state}>{state}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.state && <p className="text-red-400 text-sm mt-1">{errors.state}</p>}
-        </div>
-
-        <div>
-          <Label htmlFor="pincode" className="text-white mb-2 block">Pincode *</Label>
-          <Input
-            id="pincode"
-            value={formData.pincode}
-            onChange={(e) => handleInputChange('pincode', e.target.value.replace(/\D/g, ''))}
-            className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="400001"
-            maxLength={6}
-          />
-          {errors.pincode && <p className="text-red-400 text-sm mt-1">{errors.pincode}</p>}
+          {errors.companyName && <p className="text-red-400 text-sm mt-1">{errors.companyName}</p>}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <Label htmlFor="phone" className="text-white mb-2 block">Phone Number *</Label>
+          <Label htmlFor="workExperienceMonths" className="text-white mb-2 block">Work Experience (Months)</Label>
           <Input
-            id="phone"
-            value={formData.phone}
-            onChange={(e) => handleInputChange('phone', e.target.value.replace(/\D/g, ''))}
-            className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="9876543210"
-            maxLength={10}
-          />
-          {errors.phone && <p className="text-red-400 text-sm mt-1">{errors.phone}</p>}
-        </div>
-
-        <div>
-          <Label htmlFor="email" className="text-white mb-2 block">Email Address *</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => handleInputChange('email', e.target.value)}
-            className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="user@example.com"
-          />
-          {errors.email && <p className="text-red-400 text-sm mt-1">{errors.email}</p>}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <Label htmlFor="monthlyExpenses" className="text-white mb-2 block">Monthly Expenses *</Label>
-          <Input
-            id="monthlyExpenses"
+            id="workExperienceMonths"
             type="number"
             min="0"
-            value={formData.monthlyExpenses}
-            onChange={(e) => handleInputChange('monthlyExpenses', parseInt(e.target.value) || 0)}
+            value={formData.workExperienceMonths}
+            onChange={(e) => handleInputChange('workExperienceMonths', parseInt(e.target.value) || 0)}
             className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="25000"
+            placeholder="60"
           />
-          {errors.monthlyExpenses && <p className="text-red-400 text-sm mt-1">{errors.monthlyExpenses}</p>}
         </div>
 
+        <div>
+          <Label htmlFor="monthlySalary" className="text-white mb-2 block">Monthly Salary (₹)</Label>
+          <Input
+            id="monthlySalary"
+            type="number"
+            min="0"
+            value={formData.monthlySalary}
+            onChange={(e) => handleInputChange('monthlySalary', parseInt(e.target.value) || 0)}
+            className="bg-slate-800/50 border-purple-500/20 text-white"
+            placeholder="50000"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <Label htmlFor="existingCreditCards" className="text-white mb-2 block">Existing Credit Cards</Label>
           <Input
@@ -579,73 +365,25 @@ export default function CreditCardApplication() {
             value={formData.existingCreditCards}
             onChange={(e) => handleInputChange('existingCreditCards', parseInt(e.target.value) || 0)}
             className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="2"
+            placeholder="0"
           />
-          {errors.existingCreditCards && <p className="text-red-400 text-sm mt-1">{errors.existingCreditCards}</p>}
         </div>
 
         <div>
-          <Label htmlFor="existingLoans" className="text-white mb-2 block">Existing Loans</Label>
+          <Label htmlFor="existingLoansEmi" className="text-white mb-2 block">Existing Loans EMI (₹)</Label>
           <Input
-            id="existingLoans"
+            id="existingLoansEmi"
             type="number"
             min="0"
-            max="10"
-            value={formData.existingLoans}
-            onChange={(e) => handleInputChange('existingLoans', parseInt(e.target.value) || 0)}
+            value={formData.existingLoansEmi}
+            onChange={(e) => handleInputChange('existingLoansEmi', parseInt(e.target.value) || 0)}
             className="bg-slate-800/50 border-purple-500/20 text-white"
-            placeholder="1"
+            placeholder="0"
           />
-          {errors.existingLoans && <p className="text-red-400 text-sm mt-1">{errors.existingLoans}</p>}
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="purpose" className="text-white mb-2 block">Purpose for Credit Card *</Label>
-        <Textarea
-          id="purpose"
-          value={formData.purpose}
-          onChange={(e) => handleInputChange('purpose', e.target.value)}
-          className="bg-slate-800/50 border-purple-500/20 text-white"
-          placeholder="e.g., Personal expenses, Business transactions, Travel, etc."
-          rows={3}
-        />
-        {errors.purpose && <p className="text-red-400 text-sm mt-1">{errors.purpose}</p>}
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            id="consentDataUsage"
-            checked={formData.consentDataUsage}
-            onChange={(e) => handleInputChange('consentDataUsage', e.target.checked)}
-            className="mt-1"
-          />
-          <label htmlFor="consentDataUsage" className="text-sm text-purple-300 leading-5">
-            I consent to the use of my personal data for processing this credit card application and related services. 
-            I understand that my information will be used in accordance with the bank's privacy policy.
-          </label>
-        </div>
-        {errors.consentDataUsage && <p className="text-red-400 text-sm">{errors.consentDataUsage}</p>}
-
-        <div className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            id="consentCreditCheck"
-            checked={formData.consentCreditCheck}
-            onChange={(e) => handleInputChange('consentCreditCheck', e.target.checked)}
-            className="mt-1"
-          />
-          <label htmlFor="consentCreditCheck" className="text-sm text-purple-300 leading-5">
-            I authorize the bank to perform credit checks and verify my financial information with credit bureaus 
-            and other financial institutions as necessary for this application.
-          </label>
-        </div>
-        {errors.consentCreditCheck && <p className="text-red-400 text-sm">{errors.consentCreditCheck}</p>}
-      </div>
-
-      {/* Application Summary */}
+      {/* Summary */}
       {selectedCardType && (
         <div className="bg-slate-800/30 rounded-xl p-4 border border-purple-500/20">
           <h4 className="text-white font-semibold mb-3">Application Summary</h4>
@@ -691,8 +429,8 @@ export default function CreditCardApplication() {
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            {[1, 2, 3, 4].map((stepNumber) => (
-              <div key={stepNumber} className="flex items-center">
+            {[1, 2].map((stepNumber) => (
+              <div key={stepNumber} className="flex items-center flex-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step >= stepNumber 
                     ? 'bg-purple-500 text-white' 
@@ -700,7 +438,7 @@ export default function CreditCardApplication() {
                 }`}>
                   {step > stepNumber ? <CheckCircle className="w-4 h-4" /> : stepNumber}
                 </div>
-                {stepNumber < 4 && (
+                {stepNumber < 2 && (
                   <div className={`flex-1 h-0.5 mx-2 ${
                     step > stepNumber ? 'bg-purple-500' : 'bg-slate-700'
                   }`} />
@@ -710,9 +448,7 @@ export default function CreditCardApplication() {
           </div>
           <div className="flex justify-between text-sm">
             <span className={step >= 1 ? 'text-purple-400' : 'text-slate-500'}>Card Selection</span>
-            <span className={step >= 2 ? 'text-purple-400' : 'text-slate-500'}>Personal Details</span>
-            <span className={step >= 3 ? 'text-purple-400' : 'text-slate-500'}>Contact Info</span>
-            <span className={step >= 4 ? 'text-purple-400' : 'text-slate-500'}>Final Details</span>
+            <span className={step >= 2 ? 'text-purple-400' : 'text-slate-500'}>Employment Details</span>
           </div>
         </div>
 
@@ -721,22 +457,16 @@ export default function CreditCardApplication() {
           <div className="p-6 border-b border-purple-500/20">
             <h3 className="text-xl font-semibold text-white mb-2">
               {step === 1 && 'Select Credit Card & Basic Info'}
-              {step === 2 && 'Employment & Identity Details'}
-              {step === 3 && 'Contact Information'}
-              {step === 4 && 'Financial Details & Consent'}
+              {step === 2 && 'Employment Details'}
             </h3>
             <p className="text-purple-300">
               {step === 1 && 'Choose your preferred credit card type and provide basic financial information'}
-              {step === 2 && 'Provide your employment details and identity verification information'}
-              {step === 3 && 'Enter your contact details and address information'}
-              {step === 4 && 'Complete final details and provide necessary consents'}
+              {step === 2 && 'Provide your employment details and financial information'}
             </p>
           </div>
           <div className="p-6">
             {step === 1 && renderStep1()}
             {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
-            {step === 4 && renderStep4()}
 
             {/* Navigation Buttons */}
             <div className="flex justify-between pt-6 border-t border-purple-500/20">
@@ -749,7 +479,7 @@ export default function CreditCardApplication() {
                 Previous
               </Button>
               
-              {step < 4 ? (
+              {step < 2 ? (
                 <Button onClick={handleNext} className="bg-purple-600 hover:bg-purple-700 text-white">
                   Next Step
                 </Button>

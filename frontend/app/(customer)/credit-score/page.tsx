@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
-import DashboardLayout from "../components/DashboardLayout";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 interface Factor {
   name: string;
-  score: number;
-  max_score: number;
+  points: number;
+  max_points: number;
   description: string;
+  impact: "positive" | "negative" | "neutral";
 }
 
 interface CreditScoreData {
@@ -41,10 +42,7 @@ export default function CreditScorePage() {
 
   const fetchCreditScore = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      const response = await api.get("/users/credit-score/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get("/users/credit-score/");
       setData(response.data);
     } catch {
       setError("Failed to load credit score");
@@ -161,13 +159,18 @@ export default function CreditScorePage() {
         {/* Factor Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.factors.map((factor) => {
-            const pct = (factor.score / factor.max_score) * 100;
+            const pct = (factor.points / factor.max_points) * 100;
             const barColor = pct >= 70 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444";
+            const impactColor = factor.impact === "positive" ? "text-emerald-400" : factor.impact === "negative" ? "text-red-400" : "text-purple-400";
+            const impactIcon = factor.impact === "positive" ? "▲" : factor.impact === "negative" ? "▼" : "●";
             return (
               <div key={factor.name} className="bg-slate-900/70 backdrop-blur-xl rounded-2xl p-5 border border-purple-500/20">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-white font-semibold text-sm">{factor.name}</h3>
-                  <span className="text-white font-bold text-sm">{factor.score}/{factor.max_score}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-medium ${impactColor}`}>{impactIcon} {factor.impact}</span>
+                    <span className="text-white font-bold text-sm">{factor.points}/{factor.max_points}</span>
+                  </div>
                 </div>
                 <div className="w-full bg-slate-700/50 rounded-full h-2.5 mb-3">
                   <div className="h-2.5 rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: barColor }} />

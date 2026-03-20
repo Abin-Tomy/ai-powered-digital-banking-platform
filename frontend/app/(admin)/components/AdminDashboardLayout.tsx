@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import NotificationBell from "@/components/NotificationBell";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import api from "@/lib/api";
 
 interface AdminDashboardLayoutProps {
   children: ReactNode;
@@ -13,12 +13,19 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
   const router = useRouter();
   const pathname = usePathname();
 
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    document.cookie = "access_token=; Max-Age=0; path=/";
-    document.cookie = "role=; Max-Age=0; path=/";
-    router.push("/login");
+  const logout = async () => {
+    try {
+      const refresh = localStorage.getItem("refresh_token");
+      if (refresh) await api.post("/auth/logout/", { refresh });
+    } catch {
+      // proceed with local cleanup regardless
+    } finally {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      document.cookie = "access_token=; Max-Age=0; path=/";
+      document.cookie = "role=; Max-Age=0; path=/";
+      router.push("/login");
+    }
   };
 
   const navItems = [
@@ -27,6 +34,8 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
     { path: "/admin/accounts", label: "Accounts", icon: "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" },
     { path: "/transactions", label: "Transactions", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
     { path: "/admin/fraud", label: "Fraud Detection", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
+    { path: "/admin/loans", label: "Loan Applications", icon: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" },
+    { path: "/admin/credit-cards", label: "Credit Cards", icon: "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" },
     { path: "/audit-log", label: "Audit Log", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" }
   ];
 
@@ -54,7 +63,6 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <ThemeToggle />
               <NotificationBell />
               <button
                 onClick={logout}

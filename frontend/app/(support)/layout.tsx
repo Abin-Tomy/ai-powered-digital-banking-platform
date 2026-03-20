@@ -24,12 +24,18 @@ export default function SupportLayout({
     if (cookieRole === "SUPPORT" && hasToken) {
       setIsAuthorized(true);
     } else {
-      // Clear any stale data and redirect
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      document.cookie = "access_token=; path=/; max-age=0";
-      document.cookie = "role=; path=/; max-age=0";
-      router.push("/login");
+      // Redirect to correct dashboard based on role (don't clear tokens for other valid roles)
+      if (cookieRole === "ADMIN") {
+        router.push("/admin-dashboard");
+      } else if (cookieRole === "CUSTOMER") {
+        router.push("/customer-dashboard");
+      } else {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        document.cookie = "access_token=; path=/; max-age=0";
+        document.cookie = "role=; path=/; max-age=0";
+        router.push("/login");
+      }
     }
   }, [router]);
 

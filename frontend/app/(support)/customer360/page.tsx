@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import SupportDashboardLayout from "../components/SupportDashboardLayout";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 interface CustomerProfile {
   id: number;
@@ -85,21 +86,31 @@ interface Customer360Data {
   recent_notifications: NotifData[];
 }
 
+interface UserSearchResult {
+  id: number;
+  email: string;
+  full_name: string;
+  role: string;
+}
+
 export default function Customer360Page() {
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState(searchParams.get("user_id") || "");
-  const [searchInput, setSearchInput] = useState(userId);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [data, setData] = useState<Customer360Data | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchCustomer = async (id: string) => {
+  const fetchCustomer = useCallback(async (id: string) => {
     if (!id) return;
+    setLoading(true);
+    setError("");
+    setSearchResults([]);
+    setSearchQuery("");
     try {
-      setLoading(true);
-      setError("");
-      const token = localStorage.getItem("access_token");
-      const res = await api.get(`/support/customer360/${id}/`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get(`/support/customer360/${id}/`);
       setData(res.data);
     } catch {
       setError("Customer not found or access denied.");
@@ -107,15 +118,36 @@ export default function Customer360Page() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const searchUsers = useCallback(async (query: string) => {
+    if (!query.trim()) { setSearchResults([]); return; }
+    setSearchLoading(true);
+    try {
+      const res = await api.get(`/admin/users/?page_size=100`);
+      const allUsers: UserSearchResult[] = Array.isArray(res.data) ? res.data : res.data.results ?? [];
+      const q = query.toLowerCase();
+      setSearchResults(
+        allUsers.filter(
+          (u) =>
+            u.role === "CUSTOMER" &&
+            (u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+        ).slice(0, 10)
+      );
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (userId) fetchCustomer(userId);
-  }, [userId]);
+  }, [userId, fetchCustomer]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setUserId(searchInput.trim());
+    searchUsers(searchQuery);
   };
 
   const statusBadge = (s: string) => {
@@ -148,17 +180,38 @@ export default function Customer360Page() {
         </div>
 
         {/* Search */}
-        <form onSubmit={handleSearch} className="flex gap-3">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Enter customer User ID..."
-            className="flex-1 bg-slate-800/50 border border-purple-500/30 rounded-xl px-4 py-3 text-white placeholder-purple-400 focus:outline-none focus:border-purple-500"
-          />
-          <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all">
-            Search
-          </button>
+        <form onSubmit={handleSearch} className="relative">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); if (!e.target.value) setSearchResults([]); }}
+              placeholder="Search by name or email..."
+              className="flex-1 bg-slate-800/50 border border-purple-500/30 rounded-xl px-4 py-3 text-white placeholder-purple-400 focus:outline-none focus:border-purple-500"
+            />
+            <button type="submit" disabled={searchLoading} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all disabled:opacity-50">
+              {searchLoading ? "..." : "Search"}
+            </button>
+          </div>
+          {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-20 mt-2 bg-slate-900 border border-purple-500/30 rounded-xl shadow-2xl overflow-hidden">
+              {searchResults.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => setUserId(String(u.id))}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-purple-500/10 text-left border-b border-purple-500/10 last:border-0"
+                >
+                  <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {u.full_name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="text-white text-sm font-medium">{u.full_name}</div>
+                    <div className="text-purple-400 text-xs">{u.email}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </form>
 
         {error && (
@@ -198,7 +251,7 @@ export default function Customer360Page() {
                 </div>
                 <div>
                   <span className="text-purple-400 text-xs">Joined</span>
-                  <p className="text-white font-medium">{new Date(data.customer.date_joined).toLocaleDateString()}</p>
+                  <p className="text-white font-medium">{formatDate(data.customer.date_joined)}</p>
                 </div>
               </div>
             </div>
@@ -219,7 +272,7 @@ export default function Customer360Page() {
                         </div>
                         {statusBadge(acc.status)}
                       </div>
-                      <p className="text-emerald-400 font-bold text-xl mt-2">₹{acc.balance.toLocaleString()}</p>
+                      <p className="text-emerald-400 font-bold text-xl mt-2">{formatCurrency(acc.balance)}</p>
                     </div>
                   ))}
                 </div>
@@ -243,10 +296,10 @@ export default function Customer360Page() {
                   <tbody>
                     {data.recent_transactions.map((t) => (
                       <tr key={t.id} className="border-b border-purple-500/10">
-                        <td className="py-2 px-3 text-purple-400 text-xs">{new Date(t.created_at).toLocaleString()}</td>
+                        <td className="py-2 px-3 text-purple-400 text-xs">{formatDateTime(t.created_at)}</td>
                         <td className="py-2 px-3"><span className={t.type === "CREDIT" ? "text-emerald-400" : "text-red-400"}>{t.type}</span></td>
                         <td className="py-2 px-3 text-white text-xs">{t.description}</td>
-                        <td className={`py-2 px-3 text-right font-medium ${t.type === "CREDIT" ? "text-emerald-400" : "text-red-400"}`}>₹{t.amount.toLocaleString()}</td>
+                        <td className={`py-2 px-3 text-right font-medium ${t.type === "CREDIT" ? "text-emerald-400" : "text-red-400"}`}>{formatCurrency(t.amount)}</td>
                         <td className="py-2 px-3">{statusBadge(t.status)}</td>
                       </tr>
                     ))}
@@ -267,7 +320,7 @@ export default function Customer360Page() {
                   <div key={la.id} className="flex justify-between items-center py-2 border-b border-purple-500/10">
                     <div>
                       <p className="text-white text-sm">{la.loan_type}</p>
-                      <p className="text-purple-400 text-xs">₹{la.requested_amount.toLocaleString()} · {new Date(la.applied_at).toLocaleDateString()}</p>
+                      <p className="text-purple-400 text-xs">{formatCurrency(la.requested_amount)} · {formatDate(la.applied_at)}</p>
                     </div>
                     {statusBadge(la.status)}
                   </div>
@@ -280,11 +333,11 @@ export default function Customer360Page() {
                     {data.active_loans.map((ln) => (
                       <div key={ln.id} className="bg-slate-800/50 rounded-lg p-3 mb-2 border border-purple-500/10">
                         <div className="flex justify-between">
-                          <span className="text-purple-300 text-xs">Principal: ₹{ln.principal_amount.toLocaleString()}</span>
-                          <span className="text-purple-300 text-xs">EMI: ₹{ln.monthly_emi.toLocaleString()}</span>
+                          <span className="text-purple-300 text-xs">Principal: {formatCurrency(ln.principal_amount)}</span>
+                          <span className="text-purple-300 text-xs">EMI: {formatCurrency(ln.monthly_emi)}</span>
                         </div>
                         <div className="flex justify-between mt-1">
-                          <span className="text-yellow-400 text-xs">Outstanding: ₹{ln.outstanding_balance.toLocaleString()}</span>
+                          <span className="text-yellow-400 text-xs">Outstanding: {formatCurrency(ln.outstanding_balance)}</span>
                           {statusBadge(ln.status)}
                         </div>
                       </div>
@@ -301,11 +354,11 @@ export default function Customer360Page() {
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-white font-medium">••••  ••••  ••••  {c.last_four}</p>
-                        <p className="text-purple-400 text-xs mt-1">Limit: ₹{c.credit_limit.toLocaleString()}</p>
+                        <p className="text-purple-400 text-xs mt-1">Limit: {formatCurrency(c.credit_limit)}</p>
                       </div>
                       {statusBadge(c.status)}
                     </div>
-                    <p className="text-emerald-400 text-sm mt-2">Available: ₹{c.available_credit.toLocaleString()}</p>
+                    <p className="text-emerald-400 text-sm mt-2">Available: {formatCurrency(c.available_credit)}</p>
                   </div>
                 ))}
                 {data.credit_cards.length === 0 && <p className="text-purple-400 text-sm">No credit cards</p>}
@@ -320,7 +373,7 @@ export default function Customer360Page() {
                   <div key={f.id} className="flex justify-between items-center py-2 border-b border-red-500/10">
                     <div>
                       <p className="text-white text-sm">Risk Score: <span className="text-red-400 font-bold">{f.risk_score}</span></p>
-                      <p className="text-purple-400 text-xs">{f.reasons.join(", ")} · {new Date(f.created_at).toLocaleString()}</p>
+                      <p className="text-purple-400 text-xs">{Array.isArray(f.reasons) ? f.reasons.join(", ") : f.reasons} · {formatDateTime(f.created_at)}</p>
                     </div>
                     {statusBadge(f.status)}
                   </div>

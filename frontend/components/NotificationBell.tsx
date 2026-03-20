@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import api from "@/lib/api";
@@ -12,11 +12,30 @@ interface Notification {
   created_at: string;
 }
 
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+const TYPE_META: Record<string, { icon: string; color: string }> = {
+  TRANSACTION: { icon: "ðŸ’¸", color: "text-emerald-400" },
+  LOAN:        { icon: "ðŸ¦", color: "text-blue-400" },
+  FRAUD:       { icon: "âš ï¸", color: "text-red-400" },
+  CREDIT_CARD: { icon: "ðŸ’³", color: "text-yellow-400" },
+  SYSTEM:      { icon: "ðŸ””", color: "text-purple-400" },
+};
+
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const fetchNotifications = async () => {
     try {
@@ -30,8 +49,29 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+
+    // Real-time WebSocket for new notifications
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      const wsBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws");
+      const ws = new WebSocket(`${wsBase}/ws/notifications/?token=${token}`);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const data: Notification = JSON.parse(event.data);
+          if (data.id) {
+            setNotifications((prev) => [data, ...prev]);
+            if (!data.is_read) setUnreadCount((c) => c + 1);
+          }
+        } catch { /* ignore */ }
+      };
+
+      return () => {
+        ws.close();
+        wsRef.current = null;
+      };
+    }
   }, []);
 
   // Close dropdown on outside click
@@ -63,14 +103,6 @@ export default function NotificationBell() {
     } catch {
       // ignore
     }
-  };
-
-  const typeColor: Record<string, string> = {
-    TRANSACTION: "text-emerald-400",
-    LOAN: "text-blue-400",
-    FRAUD: "text-red-400",
-    CREDIT_CARD: "text-yellow-400",
-    SYSTEM: "text-purple-400",
   };
 
   return (
@@ -106,33 +138,31 @@ export default function NotificationBell() {
           {notifications.length === 0 ? (
             <div className="p-4 text-center text-purple-400 text-sm">No notifications</div>
           ) : (
-            notifications.map((n) => (
-              <div
-                key={n.id}
-                onClick={() => !n.is_read && markRead(n.id)}
-                className={`p-3 border-b border-purple-500/10 cursor-pointer hover:bg-slate-700/50 transition-colors ${
-                  !n.is_read ? "bg-purple-900/20" : ""
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  {!n.is_read && (
-                    <span className="mt-1.5 w-2 h-2 bg-purple-400 rounded-full flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium ${typeColor[n.notification_type] || "text-purple-400"}`}>
-                        {n.notification_type}
-                      </span>
+            notifications.map((n) => {
+              const meta = TYPE_META[n.notification_type] ?? { icon: "ðŸ””", color: "text-purple-400" };
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => !n.is_read && markRead(n.id)}
+                  className={`p-3 border-b border-purple-500/10 cursor-pointer hover:bg-slate-700/50 transition-colors ${
+                    !n.is_read ? "bg-purple-900/20" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl flex-shrink-0 mt-0.5">{meta.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <span className={`text-xs font-semibold ${meta.color}`}>{n.notification_type}</span>
+                        {!n.is_read && <span className="w-2 h-2 bg-purple-400 rounded-full flex-shrink-0" />}
+                      </div>
+                      <p className="text-white text-sm font-medium truncate">{n.title}</p>
+                      <p className="text-purple-300 text-xs mt-0.5 line-clamp-2">{n.message}</p>
+                      <p className="text-purple-500 text-xs mt-1">{timeAgo(n.created_at)}</p>
                     </div>
-                    <p className="text-white text-sm font-medium truncate">{n.title}</p>
-                    <p className="text-purple-300 text-xs mt-0.5 line-clamp-2">{n.message}</p>
-                    <p className="text-purple-500 text-xs mt-1">
-                      {new Date(n.created_at).toLocaleString()}
-                    </p>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

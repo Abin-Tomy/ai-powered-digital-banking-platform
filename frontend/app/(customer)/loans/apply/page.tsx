@@ -6,17 +6,17 @@ import { ArrowLeft, Calculator, FileText, DollarSign } from 'lucide-react';
 import api from '@/lib/api';
 import Link from 'next/link';
 import DashboardLayout from '../../components/DashboardLayout';
+import { formatCurrency } from '@/lib/utils';
 
 interface LoanType {
   id: string;
   name: string;
   description: string;
-  minimum_amount: number;
-  maximum_amount: number;
-  minimum_interest_rate: number;
-  maximum_interest_rate: number;
-  minimum_tenure_months: number;
-  maximum_tenure_months: number;
+  interest_rate: number;
+  min_amount: number;
+  max_amount: number;
+  min_tenure_months: number;
+  max_tenure_months: number;
 }
 
 interface ApplicationForm {
@@ -27,10 +27,6 @@ interface ApplicationForm {
   annual_income: string;
   employment_type: string;
   employer_name: string;
-  work_experience_years: string;
-  monthly_income: string;
-  existing_loans_emi: string;
-  collateral_details: string;
 }
 
 interface EMICalculation {
@@ -56,11 +52,7 @@ function LoanApplicationInner() {
     purpose: '',
     annual_income: '',
     employment_type: '',
-    employer_name: '',
-    work_experience_years: '',
-    monthly_income: '',
-    existing_loans_emi: '',
-    collateral_details: ''
+    employer_name: ''
   });
 
   const [errors, setErrors] = useState<Partial<ApplicationForm>>({});
@@ -83,8 +75,8 @@ function LoanApplicationInner() {
     try {
       const response = await api.get('/loans/types/');
       setLoanTypes(response.data);
-    } catch (error) {
-      console.error('Failed to fetch loan types:', error);
+    } catch {
+      // silently ignore
     } finally {
       setLoading(false);
     }
@@ -118,7 +110,7 @@ function LoanApplicationInner() {
 
     const principal = parseFloat(formData.requested_amount);
     const months = parseInt(formData.tenure_months);
-    const annualRate = selectedLoanType.minimum_interest_rate;
+    const annualRate = selectedLoanType.interest_rate;
     const monthlyRate = annualRate / 12 / 100;
 
     if (principal > 0 && months > 0 && monthlyRate > 0) {
@@ -143,16 +135,16 @@ function LoanApplicationInner() {
     // Validate amount range
     if (selectedLoanType && formData.requested_amount) {
       const amount = parseFloat(formData.requested_amount);
-      if (amount < selectedLoanType.minimum_amount || amount > selectedLoanType.maximum_amount) {
-        newErrors.requested_amount = `Amount must be between ₹${selectedLoanType.minimum_amount.toLocaleString()} and ₹${selectedLoanType.maximum_amount.toLocaleString()}`;
+      if (amount < selectedLoanType.min_amount || amount > selectedLoanType.max_amount) {
+        newErrors.requested_amount = `Amount must be between ${formatCurrency(selectedLoanType.min_amount)} and ${formatCurrency(selectedLoanType.max_amount)}`;
       }
     }
 
     // Validate tenure range
     if (selectedLoanType && formData.tenure_months) {
       const tenure = parseInt(formData.tenure_months);
-      if (tenure < selectedLoanType.minimum_tenure_months || tenure > selectedLoanType.maximum_tenure_months) {
-        newErrors.tenure_months = `Tenure must be between ${selectedLoanType.minimum_tenure_months} and ${selectedLoanType.maximum_tenure_months} months`;
+      if (tenure < selectedLoanType.min_tenure_months || tenure > selectedLoanType.max_tenure_months) {
+        newErrors.tenure_months = `Tenure must be between ${selectedLoanType.min_tenure_months} and ${selectedLoanType.max_tenure_months} months`;
       }
     }
 
@@ -170,24 +162,20 @@ function LoanApplicationInner() {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem('access_token');
       const payload = {
-        ...formData,
+        loan_type: formData.loan_type,
         requested_amount: parseFloat(formData.requested_amount),
         tenure_months: parseInt(formData.tenure_months),
+        purpose: formData.purpose || undefined,
         annual_income: parseFloat(formData.annual_income),
-        monthly_income: formData.monthly_income ? parseFloat(formData.monthly_income) : null,
-        work_experience_years: formData.work_experience_years ? parseInt(formData.work_experience_years) : null,
-        existing_loans_emi: formData.existing_loans_emi ? parseFloat(formData.existing_loans_emi) : null
+        employment_type: formData.employment_type,
+        employer_name: formData.employer_name,
       };
 
-      await api.post('/loans/applications/', payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post('/loans/applications/', payload);
 
       router.push('/loans?tab=applications');
     } catch (error: any) {
-      console.error('Error submitting application:', error);
       if (error.response?.data) {
         const serverErrors: Partial<ApplicationForm> = {};
         Object.keys(error.response.data).forEach(key => {
@@ -275,11 +263,11 @@ function LoanApplicationInner() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-purple-400">Amount Range:</span>
-                      <span className="text-white ml-2">₹{selectedLoanType.minimum_amount.toLocaleString()} - ₹{selectedLoanType.maximum_amount.toLocaleString()}</span>
+                      <span className="text-white ml-2">{formatCurrency(selectedLoanType.min_amount)} - {formatCurrency(selectedLoanType.max_amount)}</span>
                     </div>
                     <div>
                       <span className="text-purple-400">Interest Rate:</span>
-                      <span className="text-white ml-2">{selectedLoanType.minimum_interest_rate}% - {selectedLoanType.maximum_interest_rate}%</span>
+                      <span className="text-white ml-2">{selectedLoanType.interest_rate}%</span>
                     </div>
                   </div>
                 </div>
@@ -342,11 +330,11 @@ function LoanApplicationInner() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-emerald-400">Monthly EMI:</span>
-                      <span className="text-white ml-2 font-bold">₹{emiCalculation.emi.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
-                    </div>
-                    <div>
-                      <span className="text-emerald-400">Total Amount:</span>
-                      <span className="text-white ml-2 font-bold">₹{emiCalculation.totalAmount.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                    <span className="text-white ml-2 font-bold">{formatCurrency(emiCalculation.emi)}</span>
+                  </div>
+                  <div>
+                    <span className="text-emerald-400">Total Amount:</span>
+                    <span className="text-white ml-2 font-bold">{formatCurrency(emiCalculation.totalAmount)}</span>
                     </div>
                   </div>
                 </div>
@@ -384,21 +372,6 @@ function LoanApplicationInner() {
                 </div>
                 <div>
                   <label className="block text-purple-200 text-sm font-semibold mb-3">
-                    Monthly Income (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.monthly_income}
-                    onChange={(e) => handleInputChange('monthly_income', e.target.value)}
-                    placeholder="Enter monthly income"
-                    className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-purple-200 text-sm font-semibold mb-3">
                     Employment Type *
                   </label>
                   <select
@@ -408,71 +381,33 @@ function LoanApplicationInner() {
                     required
                   >
                     <option value="">Select employment type</option>
-                    <option value="SALARIED">Salaried</option>
-                    <option value="SELF_EMPLOYED">Self Employed</option>
-                    <option value="BUSINESS_OWNER">Business Owner</option>
-                    <option value="PROFESSIONAL">Professional</option>
+                    <option value="Salaried">Salaried</option>
+                    <option value="Self Employed">Self Employed</option>
+                    <option value="Business Owner">Business Owner</option>
+                    <option value="Professional">Professional</option>
+                    <option value="Retired">Retired</option>
                   </select>
                   {errors.employment_type && (
                     <p className="text-red-400 text-sm mt-1">{errors.employment_type}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-purple-200 text-sm font-semibold mb-3">
-                    Employer Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.employer_name}
-                    onChange={(e) => handleInputChange('employer_name', e.target.value)}
-                    placeholder="Enter employer name"
-                    className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg"
-                    required
-                  />
-                  {errors.employer_name && (
-                    <p className="text-red-400 text-sm mt-1">{errors.employer_name}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-purple-200 text-sm font-semibold mb-3">
-                    Work Experience (Years)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.work_experience_years}
-                    onChange={(e) => handleInputChange('work_experience_years', e.target.value)}
-                    placeholder="Enter work experience"
-                    className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-purple-200 text-sm font-semibold mb-3">
-                    Existing Loans EMI (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.existing_loans_emi}
-                    onChange={(e) => handleInputChange('existing_loans_emi', e.target.value)}
-                    placeholder="Enter existing EMI amount"
-                    className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg"
-                  />
-                </div>
               </div>
 
               <div>
                 <label className="block text-purple-200 text-sm font-semibold mb-3">
-                  Collateral Details
+                  Employer Name *
                 </label>
-                <textarea
-                  value={formData.collateral_details}
-                  onChange={(e) => handleInputChange('collateral_details', e.target.value)}
-                  placeholder="Describe any collateral you wish to provide (optional)"
-                  rows={3}
-                  className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg resize-none"
+                <input
+                  type="text"
+                  value={formData.employer_name}
+                  onChange={(e) => handleInputChange('employer_name', e.target.value)}
+                  placeholder="Enter employer / company name"
+                  className="w-full px-4 py-3.5 bg-slate-800/50 border-b-2 border-purple-500/50 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all rounded-t-lg"
+                  required
                 />
+                {errors.employer_name && (
+                  <p className="text-red-400 text-sm mt-1">{errors.employer_name}</p>
+                )}
               </div>
             </div>
           </div>

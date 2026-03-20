@@ -26,10 +26,22 @@ export default function SupportChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
+  const [agentName, setAgentName] = useState("Support Agent");
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const QUICK_REPLIES = [
+    "Hello! How can I help you?",
+    "I'll look into that for you.",
+    "Is there anything else I can help with?",
+    "Please allow 2-3 business days.",
+  ];
+
   useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (user.full_name) setAgentName(user.full_name);
+    } catch {}
     fetchCustomers();
   }, []);
 
@@ -51,7 +63,8 @@ export default function SupportChatPage() {
     setConnected(false);
 
     const wsBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws");
-    const ws = new WebSocket(`${wsBase}/ws/chat/${selectedChat}/`);
+    const token = localStorage.getItem("access_token") || "";
+    const ws = new WebSocket(`${wsBase}/ws/chat/${selectedChat}/?token=${token}`);
 
     ws.onopen = () => setConnected(true);
 
@@ -83,17 +96,14 @@ export default function SupportChatPage() {
 
   const fetchCustomers = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      const usersRes = await api.get("/admin/users/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const usersRes = await api.get("/admin/users/?page_size=200");
       const allUsers = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.results || [];
       const customerUsers = allUsers.filter(
-        (user: any) => user.role === "CUSTOMER"
+        (user: { role: string }) => user.role === "CUSTOMER"
       );
       setCustomers(customerUsers);
-    } catch (err) {
-      console.error("Failed to fetch customers", err);
+    } catch {
+      // Silent fail — show empty list
     } finally {
       setLoading(false);
     }
@@ -106,7 +116,7 @@ export default function SupportChatPage() {
     wsRef.current.send(
       JSON.stringify({
         message: message.trim(),
-        sender: "Support Agent",
+        sender: agentName,
         sender_role: "SUPPORT",
       })
     );
@@ -247,27 +257,42 @@ export default function SupportChatPage() {
                 </div>
 
                 {/* Message Input */}
-                <form onSubmit={handleSendMessage} className="p-4 border-t border-purple-500/20">
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder={connected ? "Type your message..." : "Connecting..."}
-                      disabled={!connected}
-                      className="flex-1 bg-slate-800/70 border border-purple-500/30 rounded-xl px-4 py-3 text-white placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!message.trim() || !connected}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:scale-[1.02] transition-all disabled:opacity-50"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                    </button>
+                <div className="border-t border-purple-500/20">
+                  {/* Quick Replies */}
+                  <div className="px-4 pt-3 flex gap-2 flex-wrap">
+                    {QUICK_REPLIES.map((reply) => (
+                      <button
+                        key={reply}
+                        onClick={() => setMessage(reply)}
+                        className="text-xs px-3 py-1 bg-slate-800/70 hover:bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/20 transition-all"
+                      >
+                        {reply}
+                      </button>
+                    ))}
                   </div>
-                </form>
+                  <form onSubmit={handleSendMessage} className="p-4">
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); } }}
+                        placeholder={connected ? "Reply to customer..." : "Connecting..."}
+                        disabled={!connected}
+                        className="flex-1 bg-slate-800/70 border border-purple-500/30 rounded-xl px-4 py-3 text-white placeholder-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!message.trim() || !connected}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:scale-[1.02] transition-all disabled:opacity-50"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center">

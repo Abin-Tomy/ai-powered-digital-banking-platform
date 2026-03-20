@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import AdminDashboardLayout from "../components/AdminDashboardLayout";
+import { formatCurrency } from "@/lib/utils";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -38,9 +39,7 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       setError("");
-      const token = localStorage.getItem("access_token");
-      if (!token) { setError("No access token found."); return; }
-      const res = await api.get("/admin/analytics/", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get("/admin/analytics/");
       setData(res.data);
     } catch (err: unknown) {
       const e = err as { response?: { status?: number } };
@@ -97,7 +96,7 @@ export default function AdminDashboard() {
             { label: "Active Accts", value: kpis?.active_accounts, color: "emerald" },
             { label: "Transactions", value: kpis?.total_transactions, color: "cyan", onClick: () => router.push("/transactions") },
             { label: "Fraud Alerts", value: kpis?.total_fraud_alerts, color: "red", onClick: () => router.push("/admin/fraud") },
-            { label: "Pending Loans", value: kpis?.pending_loans, color: "yellow" },
+            { label: "Pending Loans", value: kpis?.pending_loans, color: "yellow", onClick: () => router.push("/admin/loans") },
           ].map((card) => (
             <div key={card.label} onClick={card.onClick} className={`bg-slate-900/70 backdrop-blur-xl rounded-2xl p-5 border border-${card.color}-500/20 ${card.onClick ? "cursor-pointer hover:border-" + card.color + "-500/50" : ""}`}>
               <span className={`text-${card.color}-300 text-xs font-medium`}>{card.label}</span>
@@ -191,7 +190,7 @@ export default function AdminDashboard() {
                     <td className="py-3 px-4 text-white">{acc.owner}</td>
                     <td className="py-3 px-4 text-purple-300">••••{acc.account_number}</td>
                     <td className="py-3 px-4"><span className="px-2 py-1 rounded-lg text-xs bg-purple-500/20 text-purple-300">{acc.type}</span></td>
-                    <td className="py-3 px-4 text-emerald-400 font-semibold text-right">₹{acc.balance.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-emerald-400 font-semibold text-right">{formatCurrency(acc.balance)}</td>
                   </tr>
                 ))}
                 {(!data?.top_accounts || data.top_accounts.length === 0) && (
